@@ -16,13 +16,15 @@ import java.util.List;
 public class GeminiAiClient {
 
     private String apiKey;
+    @org.springframework.beans.factory.annotation.Autowired
+    private OpenAiClient openAiClient;
 
-    @Value("${gemini.model:gemini-2.5-pro}")
+    @Value("${gemini.model:gemini-1.5-pro}")
     private String heavyModel;
     public void setHeavyModel(String heavyModel) { this.heavyModel = heavyModel; }
     public String getHeavyModel() { return heavyModel; }
     
-    @Value("${gemini.model.light:gemini-2.5-flash}")
+    @Value("${gemini.model.light:gemini-1.5-flash}")
     private String lightModel;
     public void setLightModel(String lightModel) { this.lightModel = lightModel; }
     public String getLightModel() { return lightModel; }
@@ -64,7 +66,8 @@ public class GeminiAiClient {
 
     private String doGenerate(String prompt, String targetModel) {
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
-            System.err.println("Gemini AI is disabled or API key is missing. Returning null to trigger fallback.");
+            System.err.println("Gemini AI is disabled or API key is missing. Using OpenAi fallback.");
+            if (openAiClient != null) return openAiClient.generateContent(prompt);
             return null;
         }
 
@@ -101,7 +104,8 @@ public class GeminiAiClient {
             }
             return null;
         } catch (Exception e) {
-            System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage());
+            System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back to GPT.");
+            if (openAiClient != null) return openAiClient.generateContent(prompt);
             return null;
         }
     }

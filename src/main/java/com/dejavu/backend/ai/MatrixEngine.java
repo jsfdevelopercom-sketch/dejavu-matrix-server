@@ -51,16 +51,10 @@ public class MatrixEngine {
         String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a deeply complex human persona for a simulation situated in the NCR (National Capital Region of India). Use real places like Noida, Gurgaon, Delhi, specific colleges, and hangout spots. Generate a minimum of 50 personality points and essential relation points (parents, siblings, issues, medical history, dreams).";
         String userPrompt = "Generate a JSON with the following keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph). User Params: " + (params != null ? params : "Random");
         
-        String json = geminiAiClient.generateContentHeavy(systemPrompt + "\n" + userPrompt);
+        String json = geminiAiClient.generateContentLight(systemPrompt + "\n" + userPrompt);
         if (json != null) {
             try {
-                // Strip markdown backticks
-                if (json.startsWith("```json")) {
-                    json = json.substring(7);
-                    if (json.endsWith("```")) {
-                        json = json.substring(0, json.length() - 3);
-                    }
-                }
+                json = json.replaceAll("^```(?:json)?\\s*", "").replaceAll("```\\s*$", "").trim();
                 
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 java.util.Map<String, Object> obj = mapper.readValue(json.trim(), java.util.Map.class);
@@ -79,7 +73,19 @@ public class MatrixEngine {
                 e.printStackTrace();
             }
         }
-        return null;
+        
+        // Fallback if AI fails (e.g. rate limits)
+        MatrixHuman human = new MatrixHuman();
+        human.setName("Agent Smith " + (int)(Math.random()*1000));
+        human.setAge(35);
+        human.setGender("Male");
+        human.setOccupation("System Auditor");
+        human.setCity("Delhi NCR");
+        human.setPersonality("Cold, calculating, and relentlessly efficient. Observes everything.");
+        human.setRelations("No known relations. Loyal only to the Matrix.");
+        human.setMemory("Day 0: Born into the Matrix via Fallback Protocol.\n");
+        human.setCurrentDay(0);
+        return humanRepository.save(human);
     }
 
     /**
@@ -90,6 +96,11 @@ public class MatrixEngine {
         List<MatrixHuman> humans = humanRepository.findAll();
         ExecutorService executor = Executors.newFixedThreadPool(10);
         for (MatrixHuman human : humans) {
+            try {
+                Thread.sleep(6000); // 6s delay to prevent Free Tier 15 RPM Rate Limit
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             executor.submit(() -> {
                 try {
                     simulateDay(human);
@@ -151,7 +162,7 @@ public class MatrixEngine {
                 "Receiver's recent memory: " + receiver.getMemory() + "\n\n" +
                 "Write a realistic phone conversation transcript between them. Keep it under 200 words.";
                 
-        String transcript = geminiAiClient.generateContentHeavy(prompt);
+        String transcript = geminiAiClient.generateContentLight(prompt);
         
         if (transcript != null) {
             caller.setMemory(caller.getMemory() + "\nCalled " + receiver.getName() + ":\n" + transcript);
