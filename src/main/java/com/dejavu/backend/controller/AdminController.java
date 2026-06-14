@@ -220,26 +220,29 @@ public class AdminController {
     @PostMapping("/confessions/force-process-all")
     public ResponseEntity<String> forceProcessAll(@RequestParam(defaultValue = "English") String language) {
         List<Confession> confessions = confessionRepository.findAll();
-        int processed = 0;
-        for (Confession c : confessions) {
-            // Delete existing blueprint
-            blueprintRepository.findFirstByConfessionIdAndLanguage(c.getId(), language)
-                .ifPresent(bp -> blueprintRepository.delete(bp));
-            
-            // Grade it
-            com.dejavu.backend.ai.ConfessionQualityGrader.GradingResult grade = qualityGrader.gradeConfession(c.getText());
-            if (grade != null) {
-                c.setSpicy(grade.isSpicy);
-                confessionRepository.save(c);
+        new Thread(() -> {
+            int processed = 0;
+            for (Confession c : confessions) {
+                // Delete existing blueprint
+                blueprintRepository.findFirstByConfessionIdAndLanguage(c.getId(), language)
+                    .ifPresent(bp -> blueprintRepository.delete(bp));
+                
+                // Grade it
+                com.dejavu.backend.ai.ConfessionQualityGrader.GradingResult grade = qualityGrader.gradeConfession(c.getText());
+                if (grade != null) {
+                    c.setSpicy(grade.isSpicy);
+                    confessionRepository.save(c);
+                }
+                
+                RoomBlueprint bp = blueprintGenerator.generate(c, language);
+                bp.setLanguage(language);
+                blueprintRepository.save(bp);
+                processed++;
+                try { Thread.sleep(10000); } catch (InterruptedException ignored) {}
             }
-            
-            RoomBlueprint bp = blueprintGenerator.generate(c, language);
-            bp.setLanguage(language);
-            blueprintRepository.save(bp);
-            processed++;
-            try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
-        }
-        return ResponseEntity.ok("Successfully force-processed " + processed + " confessions.");
+            System.out.println("Finished force-processing " + processed + " blueprints.");
+        }).start();
+        return ResponseEntity.ok("Started background force-processing of all blueprints...");
     }
 
     @Autowired
@@ -355,6 +358,12 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/stats/sessions")
+    public ResponseEntity<String> wipeSessions() {
+        sessionRepository.deleteAll();
+        return ResponseEntity.ok("All fake/testing app sessions have been wiped.");
+    }
+
     @Autowired
     private DarkArchangelInterviewEngine archangelEngine;
 
@@ -376,7 +385,7 @@ public class AdminController {
                 if (c.getExtendedStory() == null || c.getExtendedStory().equals(c.getText())) {
                     try {
                         archangelEngine.interviewAndExpand(c, globalMaxQuestions);
-                        Thread.sleep(1000); // Wait 1 second between processing
+                        Thread.sleep(50000); // Wait 50 seconds between processing. Each confession uses 12 AI requests. Free tier limit is 15 requests per minute.
                     } catch (Exception e) {
                         System.err.println("Failed to process confession " + c.getId() + ": " + e.getMessage());
                     }
