@@ -56,4 +56,9 @@ public class MatrixController {
             @RequestParam(required = false) List<Long> involvedHumanIds) {
         return ResponseEntity.ok(matrixEngine.injectWorldEvent(event, involvedHumanIds));
     }
+
+    @PostMapping("/humans/{id}/chat")
+    public ResponseEntity<String> chatWithHuman(@PathVariable Long id, @RequestParam String message) {
+        return ResponseEntity.ok(matrixEngine.chatWithHuman(id, message));
+    }
 }

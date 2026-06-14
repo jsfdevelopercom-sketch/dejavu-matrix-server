@@ -281,4 +281,34 @@ public class MatrixEngine {
         
         return "Thought injected, but reaction simulation failed.";
     }
+
+    /**
+     * Unfreezes the human and allows direct chat. The human thinks the user is a mystery man named Ramon.
+     */
+    public String chatWithHuman(Long humanId, String userMessage) {
+        MatrixHuman human = humanRepository.findById(humanId).orElse(null);
+        if (human == null) return "Human not found.";
+
+        String systemPrompt = "You are roleplaying as a human inside the Matrix. You have suddenly been contacted by a mysterious man named 'Ramon'. React naturally according to your personality, current situation, and recent memories. Reply in the first person.\n" +
+                "Name: " + human.getName() + "\n" +
+                "Age: " + human.getAge() + "\n" +
+                "Occupation: " + human.getOccupation() + "\n" +
+                "Personality: " + human.getPersonality() + "\n" +
+                "Recent Memory: " + human.getMemory();
+
+        String prompt = "Ramon says: \"" + userMessage + "\"\n" +
+                "Respond to Ramon:";
+
+        String reply = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + prompt);
+        if (reply != null) {
+            String updatedMemory = human.getMemory() + "\n[Chat with mystery man Ramon] Ramon: " + userMessage + " | My Reply: " + reply.trim();
+            if (updatedMemory.length() > 60000) {
+                updatedMemory = updatedMemory.substring(updatedMemory.length() - 60000);
+            }
+            human.setMemory(updatedMemory);
+            humanRepository.save(human);
+            return reply.trim();
+        }
+        return "Human is non-responsive.";
+    }
 }
