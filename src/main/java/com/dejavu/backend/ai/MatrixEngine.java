@@ -160,21 +160,26 @@ public class MatrixEngine {
         
         if (caller == null || receiver == null) return "Humans not found.";
         
-        String prompt = "Simulate a phone call between two humans in the NCR region. They studied at the same primary school so they are friends.\n" +
+        String intentPrompt = "Analyze these two humans and define the overarching theme or secret intention of a phone call between them today. Keep it to one sentence.\n" +
+                "Caller: " + caller.getName() + " | Memory: " + caller.getMemory() + "\n" +
+                "Receiver: " + receiver.getName() + " | Memory: " + receiver.getMemory();
+        
+        String callTheme = geminiAiClient.generateContentHeavy(intentPrompt);
+        if (callTheme == null) callTheme = "Just a casual catch-up.";
+
+        String transcriptPrompt = "Simulate a short phone call between these two friends in the NCR region based on this theme: " + callTheme + "\n" +
                 "Caller: " + caller.getName() + " (Age " + caller.getAge() + ", " + caller.getOccupation() + ")\n" +
                 "Receiver: " + receiver.getName() + " (Age " + receiver.getAge() + ", " + receiver.getOccupation() + ")\n" +
-                "Caller's recent memory: " + caller.getMemory() + "\n" +
-                "Receiver's recent memory: " + receiver.getMemory() + "\n\n" +
                 "Write a realistic phone conversation transcript between them. Keep it under 200 words.";
                 
-        String transcript = geminiAiClient.generateContentLight(prompt);
+        String transcript = geminiAiClient.generateContentLight(transcriptPrompt);
         
         if (transcript != null) {
-            caller.setMemory(caller.getMemory() + "\nCalled " + receiver.getName() + ":\n" + transcript);
-            receiver.setMemory(receiver.getMemory() + "\nReceived call from " + caller.getName() + ":\n" + transcript);
+            caller.setMemory(caller.getMemory() + "\nCalled " + receiver.getName() + " (Theme: " + callTheme + "):\n" + transcript);
+            receiver.setMemory(receiver.getMemory() + "\nReceived call from " + caller.getName() + " (Theme: " + callTheme + "):\n" + transcript);
             humanRepository.save(caller);
             humanRepository.save(receiver);
-            return transcript;
+            return "Theme: " + callTheme + "\n\nTranscript:\n" + transcript;
         }
         return "Call failed.";
     }
