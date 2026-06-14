@@ -49,4 +49,11 @@ public class MatrixController {
     public ResponseEntity<String> injectThought(@PathVariable Long id, @RequestParam String thought) {
         return ResponseEntity.ok(matrixEngine.injectThought(id, thought));
     }
+
+    @PostMapping("/world-event")
+    public ResponseEntity<String> injectWorldEvent(
+            @RequestParam String event, 
+            @RequestParam(required = false) List<Long> involvedHumanIds) {
+        return ResponseEntity.ok(matrixEngine.injectWorldEvent(event, involvedHumanIds));
+    }
 }

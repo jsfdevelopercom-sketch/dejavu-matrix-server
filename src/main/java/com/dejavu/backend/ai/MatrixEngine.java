@@ -2,8 +2,10 @@ package com.dejavu.backend.ai;
 
 import com.dejavu.backend.model.Confession;
 import com.dejavu.backend.model.MatrixHuman;
+import com.dejavu.backend.model.MatrixWorldMemory;
 import com.dejavu.backend.repository.ConfessionRepository;
 import com.dejavu.backend.repository.MatrixHumanRepository;
+import com.dejavu.backend.repository.MatrixWorldMemoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -42,6 +44,33 @@ public class MatrixEngine {
     
     @Autowired
     private com.dejavu.backend.controller.AdminController adminController;
+    
+    @Autowired
+    private MatrixWorldMemoryRepository worldMemoryRepository;
+
+    /**
+     * Injects a global binding event into the Matrix World Memory.
+     * Optionally ties it to specific humans who were directly involved.
+     */
+    public String injectWorldEvent(String eventDescription, List<Long> involvedHumanIds) {
+        MatrixWorldMemory worldEvent = new MatrixWorldMemory();
+        worldEvent.setEventDescription(eventDescription);
+        worldMemoryRepository.save(worldEvent);
+
+        StringBuilder result = new StringBuilder("World Event injected successfully.\n");
+
+        if (involvedHumanIds != null && !involvedHumanIds.isEmpty()) {
+            for (Long id : involvedHumanIds) {
+                MatrixHuman human = humanRepository.findById(id).orElse(null);
+                if (human != null) {
+                    human.setMemory(human.getMemory() + "\n[GLOBAL EVENT DIRECT INVOLVEMENT]: " + eventDescription);
+                    humanRepository.save(human);
+                    result.append("Involved human updated: ").append(human.getName()).append("\n");
+                }
+            }
+        }
+        return result.toString();
+    }
 
     /**
      * Spawns a new MatrixHuman with a rich, dynamically generated persona using OpenAI.
@@ -128,7 +157,19 @@ public class MatrixEngine {
      */
     private void simulateDay(MatrixHuman human) {
         human.setCurrentDay(human.getCurrentDay() + 1);
-        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day.";
+        
+        List<MatrixWorldMemory> worldMemories = worldMemoryRepository.findAll();
+        StringBuilder newsFeed = new StringBuilder();
+        if (!worldMemories.isEmpty()) {
+            newsFeed.append("Current World News (Word of mouth/Social Media): ");
+            // Only get the last 5 events
+            int start = Math.max(0, worldMemories.size() - 5);
+            for (int i = start; i < worldMemories.size(); i++) {
+                newsFeed.append("- ").append(worldMemories.get(i).getEventDescription()).append(" ");
+            }
+        }
+
+        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day. " + newsFeed.toString();
         String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nCity: " + human.getCity() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nRelations: " + human.getRelations() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
         
         // Use Light Model to prevent token hemorrhaging at scale
