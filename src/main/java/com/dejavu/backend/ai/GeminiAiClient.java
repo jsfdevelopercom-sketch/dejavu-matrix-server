@@ -19,12 +19,12 @@ public class GeminiAiClient {
     @org.springframework.beans.factory.annotation.Autowired
     private OpenAiClient openAiClient;
 
-    @Value("${gemini.model:gemini-1.5-pro}")
+    @Value("${gemini.model:gemini-2.5-pro}")
     private String heavyModel;
     public void setHeavyModel(String heavyModel) { this.heavyModel = heavyModel; }
     public String getHeavyModel() { return heavyModel; }
     
-    @Value("${gemini.model.light:gemini-1.5-flash}")
+    @Value("${gemini.model.light:gemini-2.5-flash}")
     private String lightModel;
     public void setLightModel(String lightModel) { this.lightModel = lightModel; }
     public String getLightModel() { return lightModel; }
