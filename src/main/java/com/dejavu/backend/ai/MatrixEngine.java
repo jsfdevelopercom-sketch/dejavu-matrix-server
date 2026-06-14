@@ -311,4 +311,43 @@ public class MatrixEngine {
         }
         return "Human is non-responsive.";
     }
+
+    /**
+     * Simulates a turn in the Town Square group chat.
+     */
+    public String townSquareTurn(String chatHistory, String godMessage) {
+        List<MatrixHuman> humans = humanRepository.findAll();
+        if (humans.isEmpty()) return "No humans available.";
+
+        StringBuilder humanContext = new StringBuilder("Town Square Participants:\n");
+        // Limit to 10 random humans to avoid context limit overflow
+        java.util.Collections.shuffle(humans);
+        int maxHumans = Math.min(humans.size(), 10);
+        for (int i = 0; i < maxHumans; i++) {
+            MatrixHuman h = humans.get(i);
+            humanContext.append("- Name: ").append(h.getName())
+                    .append(" (").append(h.getOccupation()).append(") | Personality: ")
+                    .append(h.getPersonality()).append("\n");
+        }
+
+        String systemPrompt = "You are the Matrix Town Square Simulator. You must simulate ONE SINGLE turn of conversation in a group chat containing the humans listed below.\n" +
+                humanContext.toString() + "\n" +
+                "RULES:\n" +
+                "1. Read the recent chat history.\n" +
+                "2. Choose EXACTLY ONE human to respond naturally based on their personality.\n" +
+                "3. If God has just spoken, someone must react to God in awe, fear, or confusion.\n" +
+                "4. Output format MUST be strictly: [Human Name]: [Message]";
+
+        String prompt = "Recent Chat History:\n" + chatHistory + "\n";
+        if (godMessage != null && !godMessage.trim().isEmpty()) {
+            prompt += "\nGod: " + godMessage + "\n";
+        }
+        prompt += "\nGenerate the next single response from one human:";
+
+        String reply = geminiAiClient.generateContentHeavy(systemPrompt + "\n\n" + prompt);
+        if (reply != null) {
+            return reply.trim();
+        }
+        return "System: Silence in the town square.";
+    }
 }

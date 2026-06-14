@@ -61,4 +61,9 @@ public class MatrixController {
     public ResponseEntity<String> chatWithHuman(@PathVariable Long id, @RequestParam String message) {
         return ResponseEntity.ok(matrixEngine.chatWithHuman(id, message));
     }
+
+    @PostMapping("/town-square/chat-turn")
+    public ResponseEntity<String> townSquareTurn(@RequestParam String chatHistory, @RequestParam(required = false) String godMessage) {
+        return ResponseEntity.ok(matrixEngine.townSquareTurn(chatHistory, godMessage));
+    }
 }
