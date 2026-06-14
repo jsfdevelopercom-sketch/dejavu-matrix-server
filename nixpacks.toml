@@ -1,0 +1,8 @@
+[providers.java]
+jdk = "21"
+
+[phases.build]
+cmds = ["./gradlew build -x test"]
+
+[start]
+cmd = "java -jar build/libs/backend-0.0.1-SNAPSHOT.jar"
