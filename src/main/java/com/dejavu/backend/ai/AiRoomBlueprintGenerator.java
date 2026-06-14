@@ -27,19 +27,19 @@ public class AiRoomBlueprintGenerator {
                     ? confession.getExtendedStory() 
                     : confession.getText();
                     
-            String prompt1 = "You are an ancient, extremely intelligent (IQ 200+), brutal, mocking, and jeering entity running a psychological deduction game. Read this confession story:\n" +
+            String prompt1 = "You are a master forensic detective writing clues for a physical escape room based on a true confession.\n" +
+                    "Read this confession story:\n" +
                     "\"" + fullStory + "\"\n\n" +
-                    "STRICT PERSONA RULES: DO NOT use poetic, cheesy, or 'horror' words like 'dark', 'shadows', 'whispers'. Speak with cold, brutal, calculating intelligence. Mock the user's feeble mind subtly. Clues must be short (1-2 lines, 6-12 words max), brutal, and simple.\n\n" +
-                    "GAME DESIGN RULES:\n" +
-                    "1. TARGET TRUTH FRAME: Classify the confession into relationship, actionCategory, victimType, place, emotion, consequence.\n" +
-                    "2. FORBIDDEN WORDS (TABOO): List 5-8 obvious giveaway words from the confession. NEVER use these in clues.\n" +
-                    "3. PROGRESSIVE ESCALATION (CLUE LADDER):\n" +
-                    "   - Clue 1 (20-35% guessability): Emotion + broad theme only. Do not reveal the exact act.\n" +
-                    "   - Clue 2 (35-55% guessability): Context and Relationship. Use the 'Triangulation' rule (describe physical evidence/circumstances, not the action).\n" +
-                    "   - Clue 3 (55-75% guessability): Action category. What kind of betrayal or event was it?\n" +
-                    "   - Clue 4 (75-90% guessability): Near-reveal without using forbidden words.\n" +
-                    "4. DISCRIMINABILITY: A clue is BAD if it fits every confession. It must narrow the search space.\n" +
-                    "5. SURFACE AND BASE: Each clue must have an internal explanation ('whyItFits').\n\n" +
+                    "CRITICAL CLUE WRITING RULES (VIOLATING THESE WILL BREAK THE GAME):\n" +
+                    "1. NO ABSTRACTION: NEVER use abstract, philosophical, or 'summary' words like 'betrayal', 'impactful', 'simplicity', 'privilege', 'punishment', 'truth', 'secret', 'guilt'.\n" +
+                    "2. PHYSICAL EVIDENCE ONLY: A clue MUST describe a physical object, a sensory detail, a specific location trait, or a concrete action. Treat the confession as a crime scene. What was left behind? What did the room look like? What was the exact physical act?\n" +
+                    "3. FORBIDDEN WORDS (TABOO): Identify the 5 most obvious words in the confession. You CANNOT use them or their synonyms in any clue.\n" +
+                    "4. PROGRESSIVE LADDER:\n" +
+                    "   - Clue 1: Describe the physical setting or an associated object left behind at the scene. (e.g., instead of 'a secret betrayal', write 'A half-empty coffee cup next to an unlocked computer').\n" +
+                    "   - Clue 2: Describe the relationship or victim using physical/sensory traits. (e.g., instead of 'a cheated friend', write 'Two matching friendship bracelets, one thrown in the trash').\n" +
+                    "   - Clue 3: Describe the physical action taken without naming the crime. (e.g., 'The backspace key was hit thirty times to rewrite the timeline').\n" +
+                    "   - Clue 4: The Near-Reveal. The most concrete piece of evidence that almost gives it away, strictly obeying the Taboo rule.\n" +
+                    "5. Keep clues under 15 words. Sound factual and forensic, NOT poetic.\n\n" +
                     "Return ONLY JSON matching this EXACT schema (Language: " + language + "):\n" +
                     "{\n" +
                     "  \"roomTitle\": \"...\",\n" +
@@ -92,11 +92,14 @@ public class AiRoomBlueprintGenerator {
             }
             bp.setThemesList(themesList);
             
-            bp.setBackgroundAssetId(root.has("backgroundAssetId") ? root.get("backgroundAssetId").asText() : "");
+            int bgRand = new java.util.Random().nextInt(10) + 1;
+            bp.setBackgroundAssetId(String.format("room_bg_%02d", bgRand));
             
+            List<String> validObjs = java.util.Arrays.asList("obj_old_phone_01", "obj_crumpled_letter_01", "obj_broken_mirror_01", "obj_candle_01", "obj_music_box_01", "obj_rusty_key_01");
             List<String> objList = new ArrayList<>();
-            if (root.has("objectAssetIds") && root.get("objectAssetIds").isArray()) {
-                for (JsonNode t : root.get("objectAssetIds")) objList.add(t.asText());
+            java.util.Collections.shuffle(validObjs);
+            for(int i=0; i<4; i++) {
+                objList.add(validObjs.get(i));
             }
             bp.setObjectAssetIdsList(objList);
             
