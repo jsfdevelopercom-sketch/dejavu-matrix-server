@@ -44,4 +44,9 @@ public class MatrixController {
     public ResponseEntity<String> forceConfession(@PathVariable Long id) {
         return ResponseEntity.ok(matrixEngine.forceConfession(id));
     }
+
+    @PostMapping("/humans/{id}/inject")
+    public ResponseEntity<String> injectThought(@PathVariable Long id, @RequestParam String thought) {
+        return ResponseEntity.ok(matrixEngine.injectThought(id, thought));
+    }
 }
