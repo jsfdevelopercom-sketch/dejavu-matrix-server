@@ -26,6 +26,9 @@ public class MatrixHuman {
 
     private int currentDay;
 
+    @Column(columnDefinition = "TEXT")
+    private String workingMemory;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
@@ -46,4 +49,6 @@ public class MatrixHuman {
     public void setMemory(String memory) { this.memory = memory; }
     public int getCurrentDay() { return currentDay; }
     public void setCurrentDay(int currentDay) { this.currentDay = currentDay; }
+    public String getWorkingMemory() { return workingMemory; }
+    public void setWorkingMemory(String workingMemory) { this.workingMemory = workingMemory; }
 }

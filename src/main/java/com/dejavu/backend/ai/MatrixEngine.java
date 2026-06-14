@@ -35,6 +35,9 @@ public class MatrixEngine {
     private ConfessionRepository confessionRepository;
     
     @Autowired
+    private ConsciousnessApproximator consciousnessApproximator;
+    
+    @Autowired
     private DarkArchangelInterviewEngine archangelEngine;
     
     @Autowired
@@ -125,14 +128,16 @@ public class MatrixEngine {
      */
     private void simulateDay(MatrixHuman human) {
         human.setCurrentDay(human.getCurrentDay() + 1);
-        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of their day, focusing on what they did, who they interacted with, and their inner thoughts. Keep it to one paragraph.";
-        String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nCity: " + human.getCity() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nRelations: " + human.getRelations() + "\nPast Memory:\n" + human.getMemory() + "\n\nTASK: Describe their Day " + human.getCurrentDay() + ".";
+        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day.";
+        String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nCity: " + human.getCity() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nRelations: " + human.getRelations() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
         
         // Use Light Model to prevent token hemorrhaging at scale
-        String daySimulation = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + userPrompt);
-        if (daySimulation != null) {
-            String updatedMemory = human.getMemory() + "\nDay " + human.getCurrentDay() + ": " + daySimulation.trim();
-            // Limit memory length
+        String rawDayEvents = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + userPrompt);
+        if (rawDayEvents != null) {
+            String consciousThoughts = consciousnessApproximator.synthesizeFirstPersonConsciousness(human, rawDayEvents);
+            
+            String updatedMemory = human.getMemory() + "\nDay " + human.getCurrentDay() + " [Stream of Consciousness]: " + consciousThoughts.trim();
+            // Limit long-term memory length
             if (updatedMemory.length() > 60000) {
                 updatedMemory = updatedMemory.substring(updatedMemory.length() - 60000);
             }
