@@ -154,11 +154,11 @@ public class MatrixEngine {
         java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
         String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
         String stampedEvent = "[" + timeStr + "] " + newEvent;
-        wm += "\n" + stampedEvent;
+        wm = stampedEvent + "\n\n" + wm;
         
         String logs = human.getEventLogs();
         if (logs == null) logs = "";
-        logs += "\n" + stampedEvent;
+        logs = stampedEvent + "\n\n" + logs;
         human.setEventLogs(logs);
         
         // Use OpenAI to evaluate if any memory should be shifted to LTM (Single Liner)
@@ -168,12 +168,12 @@ public class MatrixEngine {
         if (ltm != null && !ltm.contains("NONE") && ltm.length() > 5) {
             String memory = human.getMemory();
             if (memory == null) memory = "";
-            memory += "\n[CORE MEMORY]: " + ltm.trim();
+            memory = "[CORE MEMORY]: " + ltm.trim() + "\n" + memory;
             human.setMemory(memory);
             wm = ""; // Prune working memory after LTM extraction
         }
         
-        if (wm.length() > 5000) wm = wm.substring(wm.length() - 5000);
+        if (wm.length() > 5000) wm = wm.substring(0, 5000);
         human.setWorkingMemory(wm);
         humanRepository.save(human);
     }
