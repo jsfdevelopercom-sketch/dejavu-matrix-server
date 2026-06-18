@@ -30,7 +30,8 @@ public class ActiveMatrixAgent {
         entity.setCurrentDay(entity.getCurrentDay() + 1);
         
         String prompt = "Simulate a day in your life. Run your routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of your day. " + worldNews + " CRITICAL RULE: DO NOT hallucinate interactions with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
-        String rawDayEvents = openAiClient.generateContent("You are " + entity.getName() + ".\nOccupation: " + entity.getOccupation() + "\nAge: " + entity.getAge() + "\nPersonality: " + entity.getPersonality(), prompt);
+        String systemPrompt = "You are " + entity.getName() + ".\nOccupation: " + entity.getOccupation() + "\nAge: " + entity.getAge() + "\nPersonality: " + entity.getPersonality();
+        String rawDayEvents = mind.think("Daily Simulation", systemPrompt + "\n\n" + prompt);
         
         if (rawDayEvents != null) {
             String thoughts = ponder("Day " + entity.getCurrentDay() + " Events: " + rawDayEvents);
@@ -51,14 +52,14 @@ public class ActiveMatrixAgent {
         }
 
         String intentPrompt = "Analyze these humans and define the secret intention of a phone call today. 1 sentence.\nCaller: " + caller.getName() + " | Receiver: " + this.getName();
-        String callTheme = openAiClient.generateContent(intentPrompt);
+        String callTheme = mind.think("Intent Analysis", intentPrompt);
         if (callTheme == null) callTheme = "Casual catch-up.";
 
         String transcriptPrompt = "Write a realistic transcript between " + caller.getName() + " and " + this.getName() + " about: " + callTheme + "\n" +
                 "Caller Mind:\n" + caller.getMindState() + "\n" +
                 "Receiver Mind:\n" + this.getMindState();
                 
-        String transcript = openAiClient.generateContent(transcriptPrompt);
+        String transcript = mind.think("Transcript Generation", transcriptPrompt);
         
         if (transcript != null) {
             caller.ponder("Phone call with " + this.getName() + " (Theme: " + callTheme + "):\n" + transcript);

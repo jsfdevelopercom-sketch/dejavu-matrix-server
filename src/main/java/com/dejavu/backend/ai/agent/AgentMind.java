@@ -23,12 +23,14 @@ public class AgentMind {
 
     public String think(String context, String prompt) {
         String systemPrompt = "You are a human mind in the Matrix. Personality: " + personality + "\nLTM: " + longTermMemory + "\nSTM: " + shortTermMemory + "\nContext: " + context;
-        return openAiClient.generateContent(systemPrompt, prompt);
+        String result = geminiAiClient.generateContentHeavy(systemPrompt + "\n\n" + prompt);
+        return result != null ? result : openAiClient.generateContent(systemPrompt, prompt);
     }
 
     public String processEvent(String event) {
         String prompt = "Absorb this event and output your internal conscious stream of thoughts about it: " + event;
         String thoughts = think("Processing a new event.", prompt);
+        if (thoughts == null) thoughts = "I processed the event but my thoughts are clouded.";
         
         java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
         String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
@@ -45,7 +47,8 @@ public class AgentMind {
 
     private void extractCoreMemories() {
         String prompt = "Review this STM:\n" + shortTermMemory + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory. If NO, output 'NONE'.";
-        String ltmExtracted = openAiClient.generateContent(prompt);
+        String ltmExtracted = geminiAiClient.generateContentLight(prompt);
+        if (ltmExtracted == null) ltmExtracted = openAiClient.generateContent(prompt);
         if (ltmExtracted != null && !ltmExtracted.contains("NONE") && ltmExtracted.length() > 5) {
             this.longTermMemory = "[CORE MEMORY]: " + ltmExtracted.trim() + "\n" + this.longTermMemory;
             this.shortTermMemory = ""; // Flush STM to make room
