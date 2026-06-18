@@ -210,7 +210,7 @@ public class MatrixEngine {
             }
         }
 
-        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day. " + newsFeed.toString();
+        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day. " + newsFeed.toString() + " CRITICAL RULE: DO NOT hallucinate interactions or meetings with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
         String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nLTM: " + human.getMemory() + "\nSTM: " + human.getWorkingMemory() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
         
         String rawDayEvents = openAiClient.generateContent(systemPrompt, userPrompt);
