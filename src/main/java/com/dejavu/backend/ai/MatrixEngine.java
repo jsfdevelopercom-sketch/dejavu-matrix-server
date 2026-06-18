@@ -151,7 +151,9 @@ public class MatrixEngine {
     public void updateWorkingMemory(MatrixHuman human, String newEvent) {
         String wm = human.getWorkingMemory();
         if (wm == null) wm = "";
-        wm += "\n[" + java.time.LocalDateTime.now() + "] " + newEvent;
+        java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
+        String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
+        wm += "\n[" + timeStr + "] " + newEvent;
         
         // Use OpenAI to evaluate if any memory should be shifted to LTM (Single Liner)
         String prompt = "Review this Working Memory of " + human.getName() + ".\n" + wm + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory. If NO, output 'NONE'.";
