@@ -17,7 +17,7 @@ public class OpenAiClient {
 
     private String apiKey;
 
-    @Value("${GPT_MODEL:gpt-4o}")
+    @Value("${GPT_MODEL:gpt-5.5}")
     private String gptModel;
     
     public void setGptModel(String gptModel) { this.gptModel = gptModel; }
@@ -73,6 +73,10 @@ public class OpenAiClient {
             messages.add(userMsg);
             
             requestBody.put("messages", messages);
+            
+            if (gptModel != null && (gptModel.contains("gpt-5") || gptModel.contains("o1") || gptModel.contains("o3"))) {
+                requestBody.put("reasoning_effort", "low");
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

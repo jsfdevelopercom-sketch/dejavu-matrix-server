@@ -31,8 +31,14 @@ public class MatrixController {
 
     @PostMapping("/awaken")
     public ResponseEntity<String> awakenMatrix() {
-        matrixEngine.awakenMatrix();
-        return ResponseEntity.ok("Matrix awakened. Humans are experiencing a day.");
+        new Thread(() -> {
+            try {
+                matrixEngine.awakenMatrix();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+        return ResponseEntity.ok("Matrix awakened in background. Humans are experiencing a day.");
     }
 
     @PostMapping("/call")

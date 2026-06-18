@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface MatrixHumanRepository extends JpaRepository<MatrixHuman, Long> {
+    MatrixHuman findFirstByNameContainingIgnoreCase(String name);
 }

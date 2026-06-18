@@ -83,7 +83,7 @@ public class MatrixEngine {
         String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a deeply complex human persona for a simulation situated in the NCR (National Capital Region of India). Use real places like Noida, Gurgaon, Delhi, specific colleges, and hangout spots. Generate a minimum of 50 personality points and essential relation points (parents, siblings, issues, medical history, dreams).";
         String userPrompt = "Generate a JSON with the following keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph). User Params: " + (params != null ? params : "Random");
         
-        String json = geminiAiClient.generateContentLight(systemPrompt + "\n" + userPrompt);
+        String json = openAiClient.generateContent(systemPrompt, userPrompt);
         if (json != null) {
             try {
                 json = json.replaceAll("^```(?:json)?\\s*", "").replaceAll("```\\s*$", "").trim();
@@ -149,12 +149,28 @@ public class MatrixEngine {
         }
     }
 
-    /**
-     * Internal method to simulate exactly one day for a single human.
-     * Uses Gemini Heavy to parse their personality and past memory, and generates a new daily narrative.
-     * Appends the output to the human's rolling memory buffer (capped at 60,000 chars to save DB space).
-     * @param human The MatrixHuman to simulate.
-     */
+    public void updateWorkingMemory(MatrixHuman human, String newEvent) {
+        String wm = human.getWorkingMemory();
+        if (wm == null) wm = "";
+        wm += "\n[" + java.time.LocalDateTime.now() + "] " + newEvent;
+        
+        // Use OpenAI to evaluate if any memory should be shifted to LTM (Single Liner)
+        String prompt = "Review this Working Memory of " + human.getName() + ".\n" + wm + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory. If NO, output 'NONE'.";
+        String ltm = openAiClient.generateContent(prompt);
+        
+        if (ltm != null && !ltm.contains("NONE") && ltm.length() > 5) {
+            String memory = human.getMemory();
+            if (memory == null) memory = "";
+            memory += "\n[CORE MEMORY]: " + ltm.trim();
+            human.setMemory(memory);
+            wm = ""; // Prune working memory after LTM extraction
+        }
+        
+        if (wm.length() > 5000) wm = wm.substring(wm.length() - 5000);
+        human.setWorkingMemory(wm);
+        humanRepository.save(human);
+    }
+
     private void simulateDay(MatrixHuman human) {
         human.setCurrentDay(human.getCurrentDay() + 1);
         
@@ -162,7 +178,6 @@ public class MatrixEngine {
         StringBuilder newsFeed = new StringBuilder();
         if (!worldMemories.isEmpty()) {
             newsFeed.append("Current World News (Word of mouth/Social Media): ");
-            // Only get the last 5 events
             int start = Math.max(0, worldMemories.size() - 5);
             for (int i = start; i < worldMemories.size(); i++) {
                 newsFeed.append("- ").append(worldMemories.get(i).getEventDescription()).append(" ");
@@ -170,87 +185,81 @@ public class MatrixEngine {
         }
 
         String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day. " + newsFeed.toString();
-        String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nCity: " + human.getCity() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nRelations: " + human.getRelations() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
+        String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nLTM: " + human.getMemory() + "\nSTM: " + human.getWorkingMemory() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
         
-        // Use Light Model to prevent token hemorrhaging at scale
-        String rawDayEvents = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + userPrompt);
+        String rawDayEvents = openAiClient.generateContent(systemPrompt, userPrompt);
         if (rawDayEvents != null) {
             String consciousThoughts = consciousnessApproximator.synthesizeFirstPersonConsciousness(human, rawDayEvents);
+            updateWorkingMemory(human, "Day " + human.getCurrentDay() + " [Stream of Consciousness]: " + consciousThoughts.trim());
             
-            String updatedMemory = human.getMemory() + "\nDay " + human.getCurrentDay() + " [Stream of Consciousness]: " + consciousThoughts.trim();
-            // Limit long-term memory length
-            if (updatedMemory.length() > 60000) {
-                updatedMemory = updatedMemory.substring(updatedMemory.length() - 60000);
+            // Proactive Calling Check
+            String callDesirePrompt = "Based on your day and your memories:\n" + human.getMemory() + "\n" + human.getWorkingMemory() + "\nDo you desperately want to call someone specific? Output their exact name or NONE.";
+            String target = openAiClient.generateContent(callDesirePrompt);
+            if (target != null && !target.contains("NONE")) {
+                MatrixHuman targetHuman = humanRepository.findFirstByNameContainingIgnoreCase(target.trim());
+                if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
+                    phoneCall(human.getId(), targetHuman.getId());
+                }
             }
-            human.setMemory(updatedMemory);
-            humanRepository.save(human);
         }
     }
 
-    /**
-     * Forces two MatrixHumans to communicate via a simulated phone call.
-     * Generates a realistic transcript based on both of their recent memories and traits.
-     * Injects the resulting transcript into the permanent memory of both agents.
-     * @param callerId DB ID of the caller.
-     * @param receiverId DB ID of the receiver.
-     * @return The resulting transcript text.
-     */
     public String phoneCall(Long callerId, Long receiverId) {
         MatrixHuman caller = humanRepository.findById(callerId).orElse(null);
         MatrixHuman receiver = humanRepository.findById(receiverId).orElse(null);
         
         if (caller == null || receiver == null) return "Humans not found.";
         
-        String intentPrompt = "Analyze these two humans and define the overarching theme or secret intention of a phone call between them today. Keep it to one sentence.\n" +
-                "Caller: " + caller.getName() + " | Memory: " + caller.getMemory() + "\n" +
-                "Receiver: " + receiver.getName() + " | Memory: " + receiver.getMemory();
+        // 1. Acceptance Engine
+        String acceptPrompt = "You are " + receiver.getName() + ".\n" +
+            "Your personality: " + receiver.getPersonality() + "\nYour LTM: " + receiver.getMemory() + "\nYour STM: " + receiver.getWorkingMemory() + "\n" +
+            "Incoming call from " + caller.getName() + ". Based on your past experiences with them, do you ACCEPT or REJECT? Reply with exactly one word: ACCEPT or REJECT.";
         
-        String callTheme = geminiAiClient.generateContentHeavy(intentPrompt);
-        if (callTheme == null) callTheme = "Just a casual catch-up.";
+        String decision = openAiClient.generateContent(acceptPrompt);
+        if (decision != null && decision.contains("REJECT")) {
+            updateWorkingMemory(caller, "Tried calling " + receiver.getName() + " but they rejected the call.");
+            updateWorkingMemory(receiver, "Rejected an incoming call from " + caller.getName() + ".");
+            return receiver.getName() + " rejected the call.";
+        }
+        
+        // 2. Intention & Transcript Engine
+        String intentPrompt = "Analyze these humans and define the secret intention of a phone call today. 1 sentence.\n" +
+                "Caller: " + caller.getName() + " | LTM: " + caller.getMemory() + " | STM: " + caller.getWorkingMemory() + "\n" +
+                "Receiver: " + receiver.getName() + " | LTM: " + receiver.getMemory() + " | STM: " + receiver.getWorkingMemory();
+        
+        String callTheme = openAiClient.generateContent(intentPrompt);
+        if (callTheme == null) callTheme = "Casual catch-up.";
 
-        String transcriptPrompt = "Simulate a short phone call between these two friends in the NCR region based on this theme: " + callTheme + "\n" +
-                "Caller: " + caller.getName() + " (Age " + caller.getAge() + ", " + caller.getOccupation() + ")\n" +
-                "Receiver: " + receiver.getName() + " (Age " + receiver.getAge() + ", " + receiver.getOccupation() + ")\n" +
-                "Write a realistic phone conversation transcript between them. Keep it under 200 words.";
+        String transcriptPrompt = "Write a realistic transcript between " + caller.getName() + " and " + receiver.getName() + " about: " + callTheme + "\n" +
+                "CRITICAL: Use their full memories (LTM and STM) to inform the dialogue. Do not ignore past conflicts or major events!\n" +
+                "Caller LTM: " + caller.getMemory() + "\nCaller STM: " + caller.getWorkingMemory() + "\n" +
+                "Receiver LTM: " + receiver.getMemory() + "\nReceiver STM: " + receiver.getWorkingMemory();
                 
-        String transcript = geminiAiClient.generateContentLight(transcriptPrompt);
+        String transcript = openAiClient.generateContent(transcriptPrompt);
         
         if (transcript != null) {
-            caller.setMemory(caller.getMemory() + "\nCalled " + receiver.getName() + " (Theme: " + callTheme + "):\n" + transcript);
-            receiver.setMemory(receiver.getMemory() + "\nReceived call from " + caller.getName() + " (Theme: " + callTheme + "):\n" + transcript);
-            humanRepository.save(caller);
-            humanRepository.save(receiver);
+            updateWorkingMemory(caller, "Phone call with " + receiver.getName() + " (Theme: " + callTheme + "):\n" + transcript);
+            updateWorkingMemory(receiver, "Phone call with " + caller.getName() + " (Theme: " + callTheme + "):\n" + transcript);
             return "Theme: " + callTheme + "\n\nTranscript:\n" + transcript;
         }
         return "Call failed.";
     }
 
-    /**
-     * Forces a human to experience a "Dark Event" and immediately confess it to the Dark Archangel.
-     * This bridges the Matrix sandbox with the main Deja-Vu engine by generating high-quality
-     * confession data from simulated agents.
-     * @param humanId The ID of the human to interrogate.
-     * @return The final judgment/extended story generated by the Archangel.
-     */
     public String forceConfession(Long humanId) {
         MatrixHuman human = humanRepository.findById(humanId).orElse(null);
         if (human == null) return "Human not found.";
         
-        // 1. Generate a dark event
         String eventPrompt = "You are the Matrix Genesis Engine. Generate a single, dark, odd, or juicy confession-worthy event that just happened to this human today. It must be specific, grounded in their reality, and severe enough to confess to the Dark Archangel.";
         String userPrompt = "Name: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nMemory: " + human.getMemory();
-        String event = geminiAiClient.generateContentHeavy(eventPrompt + "\n" + userPrompt);
+        String event = openAiClient.generateContent(eventPrompt, userPrompt);
         
         if (event == null) return "Failed to generate event.";
         
-        human.setMemory(human.getMemory() + "\nDARK EVENT: " + event);
-        humanRepository.save(human);
+        updateWorkingMemory(human, "DARK EVENT: " + event);
         
-        // 2. Human confesses to Archangel
         Confession confession = new Confession();
-        confession.setText(event); // The initial confession is the event
+        confession.setText(event);
         
-        // Use Archangel to expand it
         Confession saved = archangelEngine.interviewAndExpand(confession, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
         return "Human " + human.getName() + " confessed: " + saved.getText() + "\n\nArchangel's Judgment: " + saved.getExtendedStory();
     }
@@ -259,23 +268,14 @@ public class MatrixEngine {
         MatrixHuman human = humanRepository.findById(id).orElse(null);
         if (human == null) return "Human not found.";
 
-        String updatedMemory = human.getMemory() + "\n[SUDDEN THOUGHT INJECTED]: " + thought;
-        if (updatedMemory.length() > 60000) {
-            updatedMemory = updatedMemory.substring(updatedMemory.length() - 60000);
-        }
-        human.setMemory(updatedMemory);
-        humanRepository.save(human);
+        updateWorkingMemory(human, "[SUDDEN THOUGHT INJECTED]: " + thought);
         
-        // Brief sim run specifically focused on the thought
         String systemPrompt = "You are simulating the immediate aftermath of a human in the Matrix receiving a sudden injected thought or desire. Describe their next 10 minutes. How do they react to this desire? Do they act on it? Keep it to a single paragraph.";
-        String userPrompt = "Human Details:\nName: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nRecent Memory:\n" + human.getMemory() + "\n\nInjected Thought: " + thought + "\n\nTASK: Describe their immediate reaction and actions.";
+        String userPrompt = "Human Details:\nName: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nRecent STM:\n" + human.getWorkingMemory() + "\n\nInjected Thought: " + thought + "\n\nTASK: Describe their immediate reaction and actions.";
         
-        String reaction = geminiAiClient.generateContentHeavy(systemPrompt + "\n\n" + userPrompt);
+        String reaction = openAiClient.generateContent(systemPrompt, userPrompt);
         if (reaction != null) {
-            String newMemory = human.getMemory() + "\nReaction to thought: " + reaction.trim();
-            if (newMemory.length() > 60000) newMemory = newMemory.substring(newMemory.length() - 60000);
-            human.setMemory(newMemory);
-            humanRepository.save(human);
+            updateWorkingMemory(human, "Reaction to thought: " + reaction.trim());
             return "Thought injected. Reaction: " + reaction.trim();
         }
         
