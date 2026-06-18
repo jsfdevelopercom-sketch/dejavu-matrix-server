@@ -23,6 +23,13 @@ public class OpenAiClient {
     public void setGptModel(String gptModel) { this.gptModel = gptModel; }
     public String getGptModel() { return this.gptModel; }
 
+    @Value("${gpt.disabled:false}")
+    private boolean gptDisabled;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private GeminiAiClient geminiAiClient;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -52,6 +59,18 @@ public class OpenAiClient {
     }
 
     public String generateContent(String systemPrompt, String userPrompt, String overrideModel) {
+        if (gptDisabled) {
+            String combinedPrompt = "";
+            if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+                combinedPrompt += systemPrompt + "\n\n";
+            }
+            if (userPrompt != null) {
+                combinedPrompt += userPrompt;
+            }
+            // Use Gemini for everything if GPT is disabled
+            return geminiAiClient.generateContent(combinedPrompt);
+        }
+
         if (apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("GPT API key is missing. Returning null.");
             return null;

@@ -34,6 +34,9 @@ public class GeminiAiClient {
     public void setAiEnabled(boolean aiEnabled) { this.aiEnabled = aiEnabled; }
     public boolean isAiEnabled() { return aiEnabled; }
 
+    @Value("${gpt.disabled:false}")
+    private boolean gptDisabled;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -66,8 +69,8 @@ public class GeminiAiClient {
 
     private String doGenerate(String prompt, String targetModel) {
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
-            System.err.println("Gemini AI is disabled or API key is missing. Using OpenAi fallback.");
-            if (openAiClient != null) return openAiClient.generateContent(prompt);
+            System.err.println("Gemini AI is disabled or API key is missing. Using OpenAi fallback if allowed.");
+            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return null;
         }
 
@@ -105,7 +108,7 @@ public class GeminiAiClient {
             return null;
         } catch (Exception e) {
             System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back to GPT.");
-            if (openAiClient != null) return openAiClient.generateContent(prompt);
+            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return null;
         }
     }
