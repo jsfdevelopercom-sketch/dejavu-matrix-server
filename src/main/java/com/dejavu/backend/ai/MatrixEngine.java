@@ -110,6 +110,7 @@ public class MatrixEngine {
                 human.setPersonality(obj.containsKey("personality") ? obj.get("personality").toString() : "");
                 human.setRelations(obj.containsKey("relations") ? obj.get("relations").toString() : "");
                 human.setMemory("Day 0: Born into the Matrix.\n");
+                human.setEventLogs("Day 0: Spawned into existence.\n");
                 human.setCurrentDay(0);
                 
                 new Thread(() -> {
@@ -148,6 +149,7 @@ public class MatrixEngine {
         human.setPersonality("Cold, calculating, and relentlessly efficient. Observes everything.");
         human.setRelations("No known relations. Loyal only to the Matrix.");
         human.setMemory("Day 0: Born into the Matrix via Fallback Protocol.\n");
+        human.setEventLogs("Day 0: Spawned into existence (Fallback).\n");
         human.setCurrentDay(0);
         return humanRepository.save(human);
     }
@@ -422,15 +424,11 @@ public class MatrixEngine {
         }
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private com.dejavu.backend.repository.ConfessionRepository confessionRepository;
-
     public String processAllIncompleteConfessions() {
         new Thread(() -> {
             List<Confession> confessions = confessionRepository.findAll();
             for (Confession c : confessions) {
-                if (c.getExtendedStory() == null || c.getExtendedStory().trim().isEmpty() || 
-                    c.getStoryFragments() == null || c.getStoryFragments().trim().isEmpty() || c.getStoryFragments().equals("[]")) {
+                if (c.getExtendedStory() == null || c.getExtendedStory().trim().isEmpty()) {
                     try {
                         archangelEngine.interviewAndExpand(c, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
                         Thread.sleep(3000); // Wait 3s to avoid rate limits
