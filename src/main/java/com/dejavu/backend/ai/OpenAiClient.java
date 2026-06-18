@@ -112,10 +112,10 @@ public class OpenAiClient {
         try {
             String url = "https://api.openai.com/v1/images/generations";
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", "dall-e-3");
+            requestBody.put("model", "dall-e-2");
             requestBody.put("prompt", prompt);
             requestBody.put("n", 1);
-            requestBody.put("size", "1024x1024");
+            requestBody.put("size", "256x256");
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

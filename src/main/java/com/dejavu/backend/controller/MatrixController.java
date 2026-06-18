@@ -73,6 +73,11 @@ public class MatrixController {
         return ResponseEntity.ok(matrixEngine.townSquareTurn(chatHistory, godMessage));
     }
 
+    @PostMapping("/process-all-confessions")
+    public ResponseEntity<String> processAllConfessions() {
+        return ResponseEntity.ok(matrixEngine.processAllIncompleteConfessions());
+    }
+
     @GetMapping(value = "/avatars/{filename}", produces = org.springframework.http.MediaType.IMAGE_PNG_VALUE)
     public @ResponseBody byte[] getAvatar(@PathVariable String filename) throws java.io.IOException {
         java.io.File file = new java.io.File("data/avatars/" + filename);

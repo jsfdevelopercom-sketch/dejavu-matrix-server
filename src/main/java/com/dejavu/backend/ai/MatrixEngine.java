@@ -114,7 +114,9 @@ public class MatrixEngine {
                 
                 new Thread(() -> {
                     try {
-                        String prompt = "A cinematic, photorealistic portrait of a " + human.getAge() + " year old " + human.getGender() + " from " + human.getCity() + ". Occupation: " + human.getOccupation() + ". " + human.getPersonality() + " Dark, elegant, subtle cybernetic lighting. No text.";
+                        String prompt = "A cinematic, photorealistic portrait of a " + human.getAge() + " year old " + human.getGender() + " from " + human.getCity() + ". Occupation: " + human.getOccupation() + ". " + human.getPersonality();
+                        if (prompt.length() > 900) prompt = prompt.substring(0, 900);
+                        prompt += " Dark, cybernetic lighting.";
                         String url = openAiClient.generateImage(prompt);
                         if (url != null) {
                             String filename = java.util.UUID.randomUUID() + ".png";
@@ -155,28 +157,30 @@ public class MatrixEngine {
      * Uses a bounded thread pool to avoid Thread Explosion and DB connection starvation.
      */
     public void awakenMatrix() {
-        List<MatrixHuman> humans = humanRepository.findAll();
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        for (MatrixHuman human : humans) {
+        new Thread(() -> {
+            List<MatrixHuman> humans = humanRepository.findAll();
+            ExecutorService executor = Executors.newFixedThreadPool(10);
+            for (MatrixHuman human : humans) {
+                try {
+                    Thread.sleep(6000); // 6s delay to prevent Free Tier 15 RPM Rate Limit
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                executor.submit(() -> {
+                    try {
+                        simulateDay(human);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+            executor.shutdown();
             try {
-                Thread.sleep(6000); // 6s delay to prevent Free Tier 15 RPM Rate Limit
+                executor.awaitTermination(30, TimeUnit.MINUTES);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            executor.submit(() -> {
-                try {
-                    simulateDay(human);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-        executor.shutdown();
-        try {
-            executor.awaitTermination(30, TimeUnit.MINUTES);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        }).start();
     }
 
     public void updateWorkingMemory(MatrixHuman human, String newEvent) {
@@ -291,19 +295,22 @@ public class MatrixEngine {
         MatrixHuman human = humanRepository.findById(humanId).orElse(null);
         if (human == null) return "Human not found.";
         
-        String eventPrompt = "You are the Matrix Genesis Engine. Generate a single, dark, odd, or juicy confession-worthy event that just happened to this human today. It must be specific, grounded in their reality, and severe enough to confess to the Dark Archangel.";
-        String userPrompt = "Name: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nMemory: " + human.getMemory();
-        String event = openAiClient.generateContent(eventPrompt, userPrompt);
+        new Thread(() -> {
+            String eventPrompt = "You are the Matrix Genesis Engine. Generate a single, dark, odd, or juicy confession-worthy event that just happened to this human today. It must be specific, grounded in their reality, and severe enough to confess to the Dark Archangel.";
+            String userPrompt = "Name: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nMemory: " + human.getMemory();
+            String event = openAiClient.generateContent(eventPrompt, userPrompt);
+            
+            if (event != null) {
+                updateWorkingMemory(human, "DARK EVENT: " + event);
+                
+                Confession confession = new Confession();
+                confession.setText(event);
+                
+                archangelEngine.interviewAndExpand(confession, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
+            }
+        }).start();
         
-        if (event == null) return "Failed to generate event.";
-        
-        updateWorkingMemory(human, "DARK EVENT: " + event);
-        
-        Confession confession = new Confession();
-        confession.setText(event);
-        
-        Confession saved = archangelEngine.interviewAndExpand(confession, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
-        return "Human " + human.getName() + " confessed: " + saved.getText() + "\n\nArchangel's Judgment: " + saved.getExtendedStory();
+        return "Human " + human.getName() + " is being forced to confess in the background. Check logs later.";
     }
 
     public String injectThought(Long id, String thought) {
@@ -413,5 +420,49 @@ public class MatrixEngine {
                 }
             }).start();
         }
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.dejavu.backend.repository.ConfessionRepository confessionRepository;
+
+    public String processAllIncompleteConfessions() {
+        new Thread(() -> {
+            List<Confession> confessions = confessionRepository.findAll();
+            for (Confession c : confessions) {
+                if (c.getExtendedStory() == null || c.getExtendedStory().trim().isEmpty() || 
+                    c.getStoryFragments() == null || c.getStoryFragments().trim().isEmpty() || c.getStoryFragments().equals("[]")) {
+                    try {
+                        archangelEngine.interviewAndExpand(c, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
+                        Thread.sleep(3000); // Wait 3s to avoid rate limits
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            // Fix missing avatars
+            List<MatrixHuman> humans = humanRepository.findAll();
+            for (MatrixHuman h : humans) {
+                if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
+                    try {
+                        String prompt = "A cinematic, photorealistic portrait of a " + h.getAge() + " year old " + h.getGender() + " from " + h.getCity() + ". Occupation: " + h.getOccupation() + ". " + h.getPersonality();
+                        if (prompt.length() > 900) prompt = prompt.substring(0, 900);
+                        prompt += " Dark, cybernetic lighting.";
+                        String url = openAiClient.generateImage(prompt);
+                        if (url != null) {
+                            String filename = java.util.UUID.randomUUID() + ".png";
+                            java.nio.file.Path path = java.nio.file.Paths.get("data/avatars/" + filename);
+                            java.nio.file.Files.createDirectories(path.getParent());
+                            java.io.InputStream in = new java.net.URL(url).openStream();
+                            java.nio.file.Files.copy(in, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            h.setAvatarUrl("/api/matrix/avatars/" + filename);
+                            humanRepository.save(h);
+                            Thread.sleep(3000);
+                        }
+                    } catch (Exception e) {}
+                }
+            }
+        }).start();
+        return "Started background processing of all incomplete confessions AND missing avatars. Check server logs.";
     }
 }
