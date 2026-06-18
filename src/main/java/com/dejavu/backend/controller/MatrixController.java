@@ -21,7 +21,26 @@ public class MatrixController {
 
     @GetMapping("/humans")
     public ResponseEntity<List<MatrixHuman>> getHumans() {
-        return ResponseEntity.ok(humanRepository.findAll());
+        List<MatrixHuman> humans = humanRepository.findAll();
+        
+        // Auto-heal: Weed out Agent Smiths manually and map generated avatars
+        humans.removeIf(h -> {
+            if (h.getName() != null && h.getName().toLowerCase().contains("agent smith")) {
+                humanRepository.delete(h);
+                return true;
+            }
+            if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
+                String safeName = h.getName().toLowerCase().replace(" ", "_").replace("'", "").replace(".", "");
+                java.io.File f = new java.io.File("data/avatars/" + safeName + ".png");
+                if (f.exists()) {
+                    h.setAvatarUrl("/api/matrix/avatars/" + safeName + ".png");
+                    humanRepository.save(h);
+                }
+            }
+            return false;
+        });
+        
+        return ResponseEntity.ok(humans);
     }
 
     @PostMapping("/humans")

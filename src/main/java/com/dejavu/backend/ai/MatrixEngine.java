@@ -1,5 +1,6 @@
 package com.dejavu.backend.ai;
 
+import com.dejavu.backend.ai.agent.ActiveMatrixAgent;
 import com.dejavu.backend.model.Confession;
 import com.dejavu.backend.model.MatrixHuman;
 import com.dejavu.backend.model.MatrixWorldMemory;
@@ -62,9 +63,10 @@ public class MatrixEngine {
             for (Long id : involvedHumanIds) {
                 MatrixHuman human = humanRepository.findById(id).orElse(null);
                 if (human != null) {
-                    human.setMemory(human.getMemory() + "\n[GLOBAL EVENT DIRECT INVOLVEMENT]: " + eventDescription);
-                    humanRepository.save(human);
-                    result.append("Involved human updated: ").append(human.getName()).append("\n");
+                    com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(human);
+                    agent.logEvent("[GLOBAL EVENT DIRECT INVOLVEMENT]: " + eventDescription);
+                    humanRepository.save(agent.syncToDatabaseEntity());
+                    result.append("Involved human updated: ").append(agent.getName()).append("\n");
                 }
             }
         }
@@ -190,38 +192,12 @@ public class MatrixEngine {
         }).start();
     }
 
-    public void updateWorkingMemory(MatrixHuman human, String newEvent) {
-        String wm = human.getWorkingMemory();
-        if (wm == null) wm = "";
-        java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
-        String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
-        String stampedEvent = "[" + timeStr + "] " + newEvent;
-        wm = stampedEvent + "\n\n" + wm;
-        
-        String logs = human.getEventLogs();
-        if (logs == null) logs = "";
-        logs = stampedEvent + "\n\n" + logs;
-        human.setEventLogs(logs);
-        
-        // Use OpenAI to evaluate if any memory should be shifted to LTM (Single Liner)
-        String prompt = "Review this Working Memory of " + human.getName() + ".\n" + wm + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory. If NO, output 'NONE'.";
-        String ltm = openAiClient.generateContent(prompt);
-        
-        if (ltm != null && !ltm.contains("NONE") && ltm.length() > 5) {
-            String memory = human.getMemory();
-            if (memory == null) memory = "";
-            memory = "[CORE MEMORY]: " + ltm.trim() + "\n" + memory;
-            human.setMemory(memory);
-            wm = ""; // Prune working memory after LTM extraction
-        }
-        
-        if (wm.length() > 5000) wm = wm.substring(0, 5000);
-        human.setWorkingMemory(wm);
-        humanRepository.save(human);
+    public ActiveMatrixAgent getAgent(MatrixHuman human) {
+        return new com.dejavu.backend.ai.agent.ActiveMatrixAgent(human, openAiClient, geminiAiClient);
     }
 
     private void simulateDay(MatrixHuman human) {
-        human.setCurrentDay(human.getCurrentDay() + 1);
+        ActiveMatrixAgent agent = getAgent(human);
         
         List<MatrixWorldMemory> worldMemories = worldMemoryRepository.findAll();
         StringBuilder newsFeed = new StringBuilder();
@@ -233,22 +209,16 @@ public class MatrixEngine {
             }
         }
 
-        String systemPrompt = "You are simulating a day in the life of a human in the Matrix. Run their routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of their day. " + newsFeed.toString() + " CRITICAL RULE: DO NOT hallucinate interactions or meetings with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
-        String userPrompt = "Human Details:\nName: " + human.getName() + "\nAge: " + human.getAge() + "\nOccupation: " + human.getOccupation() + "\nPersonality: " + human.getPersonality() + "\nLTM: " + human.getMemory() + "\nSTM: " + human.getWorkingMemory() + "\n\nTASK: Describe the events of their Day " + human.getCurrentDay() + ".";
+        agent.experienceDay(newsFeed.toString());
+        humanRepository.save(agent.syncToDatabaseEntity());
         
-        String rawDayEvents = openAiClient.generateContent(systemPrompt, userPrompt);
-        if (rawDayEvents != null) {
-            String consciousThoughts = matrixMindEngine.processEventToMind(human, rawDayEvents);
-            updateWorkingMemory(human, "Day " + human.getCurrentDay() + " [Internal Mind State]:\n" + consciousThoughts.trim());
-            
-            // Proactive Calling Check
-            String callDesirePrompt = "Based on your day and your memories:\n" + human.getMemory() + "\n" + human.getWorkingMemory() + "\nDo you desperately want to call someone specific? Output their exact name or NONE.";
-            String target = openAiClient.generateContent(callDesirePrompt);
-            if (target != null && !target.contains("NONE")) {
-                MatrixHuman targetHuman = humanRepository.findFirstByNameContainingIgnoreCase(target.trim());
-                if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
-                    phoneCall(human.getId(), targetHuman.getId());
-                }
+        // Proactive Calling Check
+        String callDesirePrompt = "Based on your day and your memories:\n" + agent.getMindState() + "\nDo you desperately want to call someone specific? Output their exact name or NONE.";
+        String target = openAiClient.generateContent(callDesirePrompt);
+        if (target != null && !target.contains("NONE")) {
+            MatrixHuman targetHuman = humanRepository.findFirstByNameContainingIgnoreCase(target.trim());
+            if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
+                phoneCall(human.getId(), targetHuman.getId());
             }
         }
     }
@@ -259,43 +229,16 @@ public class MatrixEngine {
         
         if (caller == null || receiver == null) return "Humans not found.";
         
-        // 1. Acceptance Engine
-        String acceptPrompt = "You are " + receiver.getName() + ".\n" +
-            "Your personality: " + receiver.getPersonality() + "\nYour LTM: " + receiver.getMemory() + "\nYour STM: " + receiver.getWorkingMemory() + "\n" +
-            "Incoming call from " + caller.getName() + ". Based on your past experiences with them, do you ACCEPT or REJECT? Reply with exactly one word: ACCEPT or REJECT.";
+        com.dejavu.backend.ai.agent.ActiveMatrixAgent callerAgent = getAgent(caller);
+        com.dejavu.backend.ai.agent.ActiveMatrixAgent receiverAgent = getAgent(receiver);
         
-        String decision = openAiClient.generateContent(acceptPrompt);
-        if (decision != null && decision.contains("REJECT")) {
-            updateWorkingMemory(caller, "[CALL REJECTED/CUT] Tried calling " + receiver.getName() + " but they rejected/cut the call.");
-            updateWorkingMemory(receiver, "[CALL REJECTED/CUT] Rejected an incoming call from " + caller.getName() + ".");
-            triggerGlobalTimeStep();
-            return receiver.getName() + " rejected the call.";
-        }
+        String result = receiverAgent.receiveCall(callerAgent);
         
-        // 2. Intention & Transcript Engine
-        String intentPrompt = "Analyze these humans and define the secret intention of a phone call today. 1 sentence.\n" +
-                "Caller: " + caller.getName() + " | LTM: " + caller.getMemory() + " | STM: " + caller.getWorkingMemory() + "\n" +
-                "Receiver: " + receiver.getName() + " | LTM: " + receiver.getMemory() + " | STM: " + receiver.getWorkingMemory();
-        
-        String callTheme = openAiClient.generateContent(intentPrompt);
-        if (callTheme == null) callTheme = "Casual catch-up.";
-
-        String transcriptPrompt = "Write a realistic transcript between " + caller.getName() + " and " + receiver.getName() + " about: " + callTheme + "\n" +
-                "CRITICAL: Use their full memories (LTM and STM) to inform the dialogue. Do not ignore past conflicts or major events!\n" +
-                "Caller LTM: " + caller.getMemory() + "\nCaller STM: " + caller.getWorkingMemory() + "\n" +
-                "Receiver LTM: " + receiver.getMemory() + "\nReceiver STM: " + receiver.getWorkingMemory();
-                
-        String transcript = openAiClient.generateContent(transcriptPrompt);
-        
-        if (transcript != null) {
-            updateWorkingMemory(caller, "Phone call with " + receiver.getName() + " (Theme: " + callTheme + "):\n" + transcript);
-            updateWorkingMemory(receiver, "Phone call with " + caller.getName() + " (Theme: " + callTheme + "):\n" + transcript);
-            triggerGlobalTimeStep();
-            return "Theme: " + callTheme + "\n\nTranscript:\n" + transcript;
-        }
+        humanRepository.save(callerAgent.syncToDatabaseEntity());
+        humanRepository.save(receiverAgent.syncToDatabaseEntity());
         
         triggerGlobalTimeStep();
-        return "Call failed.";
+        return result;
     }
 
     public String forceConfession(Long humanId) {
@@ -308,7 +251,9 @@ public class MatrixEngine {
             String event = openAiClient.generateContent(eventPrompt, userPrompt);
             
             if (event != null) {
-                updateWorkingMemory(human, "DARK EVENT: " + event);
+                com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(human);
+                agent.ponder("DARK EVENT: " + event);
+                humanRepository.save(agent.syncToDatabaseEntity());
                 
                 Confession confession = new Confession();
                 confession.setText(event);
@@ -324,18 +269,21 @@ public class MatrixEngine {
         MatrixHuman human = humanRepository.findById(id).orElse(null);
         if (human == null) return "Human not found.";
 
-        updateWorkingMemory(human, "[SUDDEN THOUGHT INJECTED]: " + thought);
+        com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(human);
+        agent.logEvent("[SUDDEN THOUGHT INJECTED]: " + thought);
         
         String systemPrompt = "You are simulating the immediate aftermath of a human in the Matrix receiving a sudden injected thought or desire. Describe their next 10 minutes. How do they react to this desire? Do they act on it? Keep it to a single paragraph.";
-        String userPrompt = "Human Details:\nName: " + human.getName() + "\nPersonality: " + human.getPersonality() + "\nRecent STM:\n" + human.getWorkingMemory() + "\n\nInjected Thought: " + thought + "\n\nTASK: Describe their immediate reaction and actions.";
+        String userPrompt = "Human Details:\nName: " + agent.getName() + "\nRecent Mind State:\n" + agent.getMindState() + "\n\nInjected Thought: " + thought + "\n\nTASK: Describe their immediate reaction and actions.";
         
         String reaction = openAiClient.generateContent(systemPrompt, userPrompt);
         if (reaction != null) {
-            updateWorkingMemory(human, "Reaction to thought: " + reaction.trim());
+            agent.ponder("Reaction to thought: " + reaction.trim());
+            humanRepository.save(agent.syncToDatabaseEntity());
             triggerGlobalTimeStep();
             return "Thought injected. Reaction: " + reaction.trim();
         }
         
+        humanRepository.save(agent.syncToDatabaseEntity());
         triggerGlobalTimeStep();
         return "Thought injected, but reaction simulation failed.";
     }
@@ -347,24 +295,12 @@ public class MatrixEngine {
         MatrixHuman human = humanRepository.findById(humanId).orElse(null);
         if (human == null) return "Human not found.";
 
-        String systemPrompt = "You are roleplaying as a human inside the Matrix. You have suddenly been contacted by a mysterious man named 'Ramon'. React naturally according to your personality, current situation, and recent memories. Reply in the first person.\n" +
-                "Name: " + human.getName() + "\n" +
-                "Age: " + human.getAge() + "\n" +
-                "Occupation: " + human.getOccupation() + "\n" +
-                "Personality: " + human.getPersonality() + "\n" +
-                "Recent Memory: " + human.getMemory();
-
-        String prompt = "Ramon says: \"" + userMessage + "\"\n" +
-                "Respond to Ramon:";
-
-        String reply = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + prompt);
+        com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(human);
+        String reply = agent.speak("a mysterious man named Ramon", userMessage);
+        
         if (reply != null) {
-            String updatedMemory = human.getMemory() + "\n[Chat with mystery man Ramon] Ramon: " + userMessage + " | My Reply: " + reply.trim();
-            if (updatedMemory.length() > 60000) {
-                updatedMemory = updatedMemory.substring(updatedMemory.length() - 60000);
-            }
-            human.setMemory(updatedMemory);
-            humanRepository.save(human);
+            agent.ponder("[Chat with mystery man Ramon] Ramon: " + userMessage + " | My Reply: " + reply.trim());
+            humanRepository.save(agent.syncToDatabaseEntity());
             triggerGlobalTimeStep();
             return reply.trim();
         }
@@ -383,19 +319,9 @@ public class MatrixEngine {
         java.util.Collections.shuffle(humans);
         int maxHumans = Math.min(humans.size(), 6);
         for (int i = 0; i < maxHumans; i++) {
-            MatrixHuman h = humans.get(i);
-            
-            String ltm = h.getMemory();
-            if (ltm != null && ltm.length() > 1000) ltm = ltm.substring(ltm.length() - 1000);
-            
-            String stm = h.getWorkingMemory();
-            if (stm != null && stm.length() > 1000) stm = stm.substring(0, 1000);
-
-            humanContext.append("- Name: ").append(h.getName())
-                    .append(" (").append(h.getOccupation()).append(") | Personality: ")
-                    .append(h.getPersonality()).append("\n")
-                    .append("  [Deep Memory]: ").append(ltm).append("\n")
-                    .append("  [Recent Events/State of Mind]: ").append(stm).append("\n\n");
+            com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(humans.get(i));
+            humanContext.append("- Name: ").append(agent.getName())
+                    .append(" | Mind State:\n").append(agent.getMindState()).append("\n\n");
         }
 
         String systemPrompt = "You are the Matrix Town Square Simulator. You must simulate ONE SINGLE turn of conversation in a group chat containing the humans listed below.\n" +
@@ -414,10 +340,21 @@ public class MatrixEngine {
         prompt += "\nGenerate the next single response from one human:";
 
         String reply = openAiClient.generateContent(systemPrompt, prompt);
-        triggerGlobalTimeStep();
+        
         if (reply != null) {
+            String senderName = reply.split(":")[0].trim();
+            for (MatrixHuman h : humans) {
+                if (h.getName().equalsIgnoreCase(senderName) || reply.startsWith(h.getName())) {
+                    com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(h);
+                    agent.ponder("I spoke in the town square: " + reply);
+                    humanRepository.save(agent.syncToDatabaseEntity());
+                    break;
+                }
+            }
+            triggerGlobalTimeStep();
             return reply.trim();
         }
+        triggerGlobalTimeStep();
         return "System: Silence in the town square.";
     }
 
