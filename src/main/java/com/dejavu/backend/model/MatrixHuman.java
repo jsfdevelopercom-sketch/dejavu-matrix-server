@@ -56,4 +56,9 @@ public class MatrixHuman {
     private String eventLogs;
     public String getEventLogs() { return eventLogs; }
     public void setEventLogs(String eventLogs) { this.eventLogs = eventLogs; }
+
+    @Column(length = 1000)
+    private String avatarUrl;
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 }

@@ -99,6 +99,25 @@ public class MatrixEngine {
                 human.setRelations(obj.containsKey("relations") ? obj.get("relations").toString() : "");
                 human.setMemory("Day 0: Born into the Matrix.\n");
                 human.setCurrentDay(0);
+                
+                new Thread(() -> {
+                    try {
+                        String prompt = "A cinematic, photorealistic portrait of a " + human.getAge() + " year old " + human.getGender() + " from " + human.getCity() + ". Occupation: " + human.getOccupation() + ". " + human.getPersonality() + " Dark, elegant, subtle cybernetic lighting. No text.";
+                        String url = openAiClient.generateImage(prompt);
+                        if (url != null) {
+                            String filename = java.util.UUID.randomUUID() + ".png";
+                            java.nio.file.Path path = java.nio.file.Paths.get("data/avatars/" + filename);
+                            java.nio.file.Files.createDirectories(path.getParent());
+                            java.io.InputStream in = new java.net.URL(url).openStream();
+                            java.nio.file.Files.copy(in, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            human.setAvatarUrl("/api/matrix/avatars/" + filename);
+                            humanRepository.save(human);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }).start();
+
                 return humanRepository.save(human);
             } catch (Exception e) {
                 e.printStackTrace();

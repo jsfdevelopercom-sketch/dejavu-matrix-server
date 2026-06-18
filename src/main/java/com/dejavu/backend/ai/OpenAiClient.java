@@ -104,4 +104,34 @@ public class OpenAiClient {
             return null;
         }
     }
+
+    public String generateImage(String prompt) {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            String url = "https://api.openai.com/v1/images/generations";
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", "dall-e-3");
+            requestBody.put("prompt", prompt);
+            requestBody.put("n", 1);
+            requestBody.put("size", "1024x1024");
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+            
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            
+            Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+            List<Map<String, Object>> data = (List<Map<String, Object>>) responseMap.get("data");
+            if (data != null && !data.isEmpty()) {
+                return (String) data.get(0).get("url");
+            }
+        } catch (Exception e) {
+            System.err.println("DALL-E Image generation failed: " + e.getMessage());
+        }
+        return null;
+    }
 }
