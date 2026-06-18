@@ -65,6 +65,12 @@ public class OpenAiClient {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", targetModel);
             
+            if (systemPrompt != null && systemPrompt.contains("JSON")) {
+                Map<String, String> responseFormat = new HashMap<>();
+                responseFormat.put("type", "json_object");
+                requestBody.put("response_format", responseFormat);
+            }
+            
             List<Map<String, String>> messages = new java.util.ArrayList<>();
             if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
                 Map<String, String> sysMsg = new HashMap<>();

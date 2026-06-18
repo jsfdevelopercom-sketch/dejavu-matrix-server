@@ -80,7 +80,7 @@ public class MatrixEngine {
      * @return The saved MatrixHuman entity.
      */
     public MatrixHuman spawnHuman(String name, String params) {
-        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a deeply complex human persona for a simulation situated in the NCR (National Capital Region of India). Generate a minimum of 50 personality points and essential relation points (parents, siblings, issues, medical history, dreams).";
+        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a complex human persona for a simulation situated in the NCR. Generate a concise but rich background, including personality, relations, and dreams. Output ONLY raw JSON.";
         
         String n = (name != null && !name.trim().isEmpty()) ? name.trim() : "Randomize a culturally appropriate name";
         String p = (params != null && !params.trim().isEmpty()) ? params.trim() : "Random";
