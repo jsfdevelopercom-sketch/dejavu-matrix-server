@@ -37,7 +37,7 @@ public class MatrixEngine {
     private ConfessionRepository confessionRepository;
     
     @Autowired
-    private ConsciousnessApproximator consciousnessApproximator;
+    private MatrixMindEngine matrixMindEngine;
     
     @Autowired
     private DarkArchangelInterviewEngine archangelEngine;
@@ -189,8 +189,8 @@ public class MatrixEngine {
         
         String rawDayEvents = openAiClient.generateContent(systemPrompt, userPrompt);
         if (rawDayEvents != null) {
-            String consciousThoughts = consciousnessApproximator.synthesizeFirstPersonConsciousness(human, rawDayEvents);
-            updateWorkingMemory(human, "Day " + human.getCurrentDay() + " [Stream of Consciousness]: " + consciousThoughts.trim());
+            String consciousThoughts = matrixMindEngine.processEventToMind(human, rawDayEvents);
+            updateWorkingMemory(human, "Day " + human.getCurrentDay() + " [Internal Mind State]:\n" + consciousThoughts.trim());
             
             // Proactive Calling Check
             String callDesirePrompt = "Based on your day and your memories:\n" + human.getMemory() + "\n" + human.getWorkingMemory() + "\nDo you desperately want to call someone specific? Output their exact name or NONE.";

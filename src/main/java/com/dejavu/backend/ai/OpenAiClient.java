@@ -48,6 +48,10 @@ public class OpenAiClient {
     }
 
     public String generateContent(String systemPrompt, String userPrompt) {
+        return generateContent(systemPrompt, userPrompt, gptModel);
+    }
+
+    public String generateContent(String systemPrompt, String userPrompt, String overrideModel) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("GPT API key is missing. Returning null.");
             return null;
@@ -56,8 +60,10 @@ public class OpenAiClient {
         try {
             String url = "https://api.openai.com/v1/chat/completions";
             
+            String targetModel = (overrideModel != null && !overrideModel.isEmpty()) ? overrideModel : gptModel;
+            
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", gptModel);
+            requestBody.put("model", targetModel);
             
             List<Map<String, String>> messages = new java.util.ArrayList<>();
             if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
