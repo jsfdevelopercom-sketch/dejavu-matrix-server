@@ -68,6 +68,7 @@ public class MatrixEngine {
                 }
             }
         }
+        triggerGlobalTimeStep();
         return result.toString();
     }
 
@@ -256,6 +257,7 @@ public class MatrixEngine {
         if (decision != null && decision.contains("REJECT")) {
             updateWorkingMemory(caller, "[CALL REJECTED/CUT] Tried calling " + receiver.getName() + " but they rejected/cut the call.");
             updateWorkingMemory(receiver, "[CALL REJECTED/CUT] Rejected an incoming call from " + caller.getName() + ".");
+            triggerGlobalTimeStep();
             return receiver.getName() + " rejected the call.";
         }
         
@@ -277,8 +279,11 @@ public class MatrixEngine {
         if (transcript != null) {
             updateWorkingMemory(caller, "Phone call with " + receiver.getName() + " (Theme: " + callTheme + "):\n" + transcript);
             updateWorkingMemory(receiver, "Phone call with " + caller.getName() + " (Theme: " + callTheme + "):\n" + transcript);
+            triggerGlobalTimeStep();
             return "Theme: " + callTheme + "\n\nTranscript:\n" + transcript;
         }
+        
+        triggerGlobalTimeStep();
         return "Call failed.";
     }
 
@@ -313,9 +318,11 @@ public class MatrixEngine {
         String reaction = openAiClient.generateContent(systemPrompt, userPrompt);
         if (reaction != null) {
             updateWorkingMemory(human, "Reaction to thought: " + reaction.trim());
+            triggerGlobalTimeStep();
             return "Thought injected. Reaction: " + reaction.trim();
         }
         
+        triggerGlobalTimeStep();
         return "Thought injected, but reaction simulation failed.";
     }
 
@@ -344,6 +351,7 @@ public class MatrixEngine {
             }
             human.setMemory(updatedMemory);
             humanRepository.save(human);
+            triggerGlobalTimeStep();
             return reply.trim();
         }
         return "Human is non-responsive.";
@@ -381,10 +389,29 @@ public class MatrixEngine {
         }
         prompt += "\nGenerate the next single response from one human:";
 
-        String reply = geminiAiClient.generateContentHeavy(systemPrompt + "\n\n" + prompt);
+        String reply = openAiClient.generateContent(systemPrompt, prompt);
+        triggerGlobalTimeStep();
         if (reply != null) {
             return reply.trim();
         }
         return "System: Silence in the town square.";
+    }
+
+    private final java.util.concurrent.atomic.AtomicBoolean isGlobalSimRunning = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * Ensures universal time flow. If one is unfrozen, all are unfrozen.
+     * Prevents overlapping massive API calls using an AtomicBoolean.
+     */
+    public void triggerGlobalTimeStep() {
+        if (isGlobalSimRunning.compareAndSet(false, true)) {
+            new Thread(() -> {
+                try {
+                    awakenMatrix();
+                } finally {
+                    isGlobalSimRunning.set(false);
+                }
+            }).start();
+        }
     }
 }
