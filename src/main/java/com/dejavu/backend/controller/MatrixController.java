@@ -67,8 +67,18 @@ public class MatrixController {
             h.setAvatarUrl(null);
             humanRepository.save(h);
         }
+        
+        java.io.File dir = new java.io.File("data/avatars");
+        if (dir.exists() && dir.isDirectory()) {
+            for (java.io.File f : dir.listFiles()) {
+                if (f.getName().endsWith(".png")) {
+                    f.delete();
+                }
+            }
+        }
+        
         matrixEngine.processAllIncompleteConfessions();
-        return ResponseEntity.ok("Avatars cleared and regeneration started for full-body shots.");
+        return ResponseEntity.ok("Avatars cleared, old files deleted, and regeneration started for full-body shots.");
     }
 
     @PostMapping("/call")
