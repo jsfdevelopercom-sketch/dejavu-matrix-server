@@ -8,7 +8,10 @@ import org.springframework.stereotype.Component;
 public class MatrixMindEngine {
 
     @Autowired
-    private OpenAiClient aiClient;
+    private OpenAiClient openAiClient;
+
+    @Autowired
+    private GeminiAiClient geminiAiClient;
 
     private static final String MODEL_NANO = "gpt-5.4-nano";
     private static final String MODEL_MINI = "gpt-5.4-mini";
@@ -25,7 +28,7 @@ public class MatrixMindEngine {
         
         String userPrompt = "Raw Event: " + rawEvent + "\nSTM Context: " + human.getWorkingMemory();
         
-        String perception = aiClient.generateContent(systemPrompt, userPrompt, MODEL_NANO);
+        String perception = openAiClient.generateContent(systemPrompt, userPrompt, MODEL_NANO);
         return perception != null ? perception.trim() : rawEvent;
     }
 
@@ -39,7 +42,8 @@ public class MatrixMindEngine {
         
         String userPrompt = "Personality: " + human.getPersonality() + "\nLTM: " + human.getMemory() + "\n\nPerception: " + perception;
         
-        String emotion = aiClient.generateContent(systemPrompt, userPrompt, MODEL_MINI);
+        // Use Gemini for variety in the emotional engine
+        String emotion = geminiAiClient.generateContentLight(systemPrompt + "\n\n" + userPrompt);
         return emotion != null ? emotion.trim() : "I feel numb.";
     }
 
@@ -55,7 +59,7 @@ public class MatrixMindEngine {
                 "What I Perceive: " + perception + "\n" +
                 "How I Feel: " + emotion;
         
-        String thought = aiClient.generateContent(systemPrompt, userPrompt, MODEL_HEAVY);
+        String thought = openAiClient.generateContent(systemPrompt, userPrompt, MODEL_HEAVY);
         return thought != null ? thought.trim() : "I don't know what to think.";
     }
 
