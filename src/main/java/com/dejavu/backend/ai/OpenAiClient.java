@@ -80,9 +80,6 @@ public class OpenAiClient {
             
             requestBody.put("messages", messages);
             
-            if (gptModel != null && (gptModel.contains("gpt-5") || gptModel.contains("o1") || gptModel.contains("o3"))) {
-                requestBody.put("reasoning_effort", "low");
-            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
