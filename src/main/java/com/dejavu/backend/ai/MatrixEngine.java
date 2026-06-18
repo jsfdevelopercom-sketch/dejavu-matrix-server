@@ -70,6 +70,16 @@ public class MatrixEngine {
                 }
             }
         }
+
+        List<MatrixHuman> allHumans = humanRepository.findAll();
+        for (MatrixHuman h : allHumans) {
+            if (involvedHumanIds == null || !involvedHumanIds.contains(h.getId())) {
+                com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(h);
+                agent.logEvent("[HEARD WORLD NEWS]: " + eventDescription);
+                humanRepository.save(agent.syncToDatabaseEntity());
+            }
+        }
+
         triggerGlobalTimeStep();
         return result.toString();
     }
