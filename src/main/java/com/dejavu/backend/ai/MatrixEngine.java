@@ -209,16 +209,18 @@ public class MatrixEngine {
             }
         }
 
-        agent.experienceDay(newsFeed.toString());
+        String thoughts = agent.experienceDay(newsFeed.toString());
         humanRepository.save(agent.syncToDatabaseEntity());
         
-        // Proactive Calling Check
-        String callDesirePrompt = "Based on your day and your memories:\n" + agent.getMindState() + "\nDo you desperately want to call someone specific? Output their exact name or NONE.";
-        String target = openAiClient.generateContent(callDesirePrompt);
-        if (target != null && !target.contains("NONE")) {
-            MatrixHuman targetHuman = humanRepository.findFirstByNameContainingIgnoreCase(target.trim());
-            if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
-                phoneCall(human.getId(), targetHuman.getId());
+        // Organic Calling Check
+        if (thoughts != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("<CALL:\\s*([^>]+)>").matcher(thoughts);
+            if (m.find()) {
+                String target = m.group(1).trim();
+                MatrixHuman targetHuman = humanRepository.findFirstByNameContainingIgnoreCase(target);
+                if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
+                    phoneCall(human.getId(), targetHuman.getId());
+                }
             }
         }
     }

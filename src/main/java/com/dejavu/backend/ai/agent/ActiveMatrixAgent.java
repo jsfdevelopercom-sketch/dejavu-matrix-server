@@ -22,10 +22,11 @@ public class ActiveMatrixAgent {
     }
 
     public String ponder(String thoughtOrEvent) {
-        return mind.processEvent(thoughtOrEvent);
+        String instruction = "\n[SYSTEM INSTRUCTION]: You possess a smartphone. If this event makes you feel a strong urge to call another specific human you know, you MUST append `<CALL:FirstName LastName>` to your thoughts.";
+        return mind.processEvent(thoughtOrEvent + instruction);
     }
 
-    public void experienceDay(String worldNews) {
+    public String experienceDay(String worldNews) {
         entity.setCurrentDay(entity.getCurrentDay() + 1);
         
         String prompt = "Simulate a day in your life. Run your routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of your day. " + worldNews + " CRITICAL RULE: DO NOT hallucinate interactions with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
@@ -34,7 +35,9 @@ public class ActiveMatrixAgent {
         if (rawDayEvents != null) {
             String thoughts = ponder("Day " + entity.getCurrentDay() + " Events: " + rawDayEvents);
             logEvent("Day " + entity.getCurrentDay() + " [Internal Mind State]:\n" + thoughts.trim());
+            return thoughts;
         }
+        return "";
     }
 
     public String receiveCall(ActiveMatrixAgent caller) {
