@@ -424,10 +424,10 @@ public class MatrixEngine {
             for (MatrixHuman h : humans) {
                 if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
                     try {
-                        String appearanceDesc = "A " + h.getAge() + " year old " + h.getGender() + " from " + h.getCity() + " working as a " + h.getOccupation() + ". Dressed in modern, stylish clothing appropriate for their age and job.";
+                        String appearanceDesc = "A " + h.getAge() + " year old " + h.getGender() + " from " + h.getCity() + " working as a " + h.getOccupation() + ". Dressed in highly fashionable, modern western clothing (e.g. sharp suits, designer jackets, casual chic western wear).";
                         String prompt = "Full body, head-to-toe wide-angle shot. Cinematic, photorealistic. " + appearanceDesc + " " + h.getPersonality();
                         if (prompt.length() > 900) prompt = prompt.substring(0, 900);
-                        prompt += " Dark, cybernetic lighting. Standing upright, whole body visible.";
+                        prompt += " Dark, cybernetic lighting. Standing upright, whole body visible, showing feet and shoes.";
                         String url = openAiClient.generateImage(prompt);
                         
                         // Inject appearance into their memory so they know what they look like
