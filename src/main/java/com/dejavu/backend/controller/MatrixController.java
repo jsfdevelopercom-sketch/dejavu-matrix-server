@@ -59,6 +59,17 @@ public class MatrixController {
         }).start();
         return ResponseEntity.ok("Matrix awakened in background. Humans are experiencing a day.");
     }
+    
+    @PostMapping("/clear-avatars")
+    public ResponseEntity<String> clearAvatars() {
+        List<MatrixHuman> humans = humanRepository.findAll();
+        for (MatrixHuman h : humans) {
+            h.setAvatarUrl(null);
+            humanRepository.save(h);
+        }
+        matrixEngine.processAllIncompleteConfessions();
+        return ResponseEntity.ok("Avatars cleared and regeneration started for full-body shots.");
+    }
 
     @PostMapping("/call")
     public ResponseEntity<String> phoneCall(@RequestParam Long callerId, @RequestParam Long receiverId) {

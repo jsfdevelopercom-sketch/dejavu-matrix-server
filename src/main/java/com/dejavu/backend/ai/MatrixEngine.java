@@ -424,10 +424,17 @@ public class MatrixEngine {
             for (MatrixHuman h : humans) {
                 if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
                     try {
-                        String prompt = "A cinematic, photorealistic portrait of a " + h.getAge() + " year old " + h.getGender() + " from " + h.getCity() + ". Occupation: " + h.getOccupation() + ". " + h.getPersonality();
+                        String appearanceDesc = "A " + h.getAge() + " year old " + h.getGender() + " from " + h.getCity() + " working as a " + h.getOccupation() + ". Dressed in modern, stylish clothing appropriate for their age and job.";
+                        String prompt = "Full body, head-to-toe wide-angle shot. Cinematic, photorealistic. " + appearanceDesc + " " + h.getPersonality();
                         if (prompt.length() > 900) prompt = prompt.substring(0, 900);
-                        prompt += " Dark, cybernetic lighting.";
+                        prompt += " Dark, cybernetic lighting. Standing upright, whole body visible.";
                         String url = openAiClient.generateImage(prompt);
+                        
+                        // Inject appearance into their memory so they know what they look like
+                        com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(h);
+                        agent.ponder("[SELF REFLECTION]: I caught a glimpse of myself in the mirror. " + appearanceDesc);
+                        h = agent.syncToDatabaseEntity();
+
                         if (url != null) {
                             String filename = java.util.UUID.randomUUID() + ".png";
                             java.nio.file.Path path = java.nio.file.Paths.get("data/avatars/" + filename);
