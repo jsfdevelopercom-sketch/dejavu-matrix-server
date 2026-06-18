@@ -443,6 +443,36 @@ public class MatrixEngine {
                 }
             }
             
+            List<MatrixHuman> smiths = humanRepository.findAll();
+            for (MatrixHuman h : smiths) {
+                if (h.getName() != null && h.getName().toLowerCase().contains("agent smith")) {
+                    try {
+                        String sysP = "You are the Matrix Genesis Engine. Generate a complex human persona in the NCR. Provide an authentic Indian or American name. Output ONLY raw JSON.";
+                        String usrP = "Generate a JSON with keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph).";
+                        String json = openAiClient.generateContent(sysP, usrP);
+                        if (json != null) {
+                            json = json.replaceAll("^```(?:json)?\\s*", "").replaceAll("```\\s*$", "").trim();
+                            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                            java.util.Map<String, Object> obj = mapper.readValue(json.trim(), java.util.Map.class);
+                            
+                            h.setName(obj.containsKey("name") ? obj.get("name").toString() : "Unknown");
+                            int age = 25;
+                            try { age = Integer.parseInt(obj.get("age").toString().replaceAll("[^0-9]", "")); } catch (Exception ex) {}
+                            h.setAge(age);
+                            h.setGender(obj.containsKey("gender") ? obj.get("gender").toString() : "Unknown");
+                            h.setOccupation(obj.containsKey("occupation") ? obj.get("occupation").toString() : "Unemployed");
+                            h.setCity(obj.containsKey("city") ? obj.get("city").toString() : "Delhi NCR");
+                            h.setPersonality(obj.containsKey("personality") ? obj.get("personality").toString() : "");
+                            h.setRelations(obj.containsKey("relations") ? obj.get("relations").toString() : "");
+                            
+                            h.setAvatarUrl(null); // Force avatar regen
+                            humanRepository.save(h);
+                            Thread.sleep(3000);
+                        }
+                    } catch(Exception e) {}
+                }
+            }
+            
             List<MatrixHuman> humans = humanRepository.findAll();
             for (MatrixHuman h : humans) {
                 if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
