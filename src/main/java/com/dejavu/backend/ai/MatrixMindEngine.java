@@ -23,12 +23,14 @@ public class MatrixMindEngine {
      */
     public String perceiveEvent(MatrixHuman human, String rawEvent) {
         String systemPrompt = "You are the Consciousness Engine for " + human.getName() + ".\n" +
-                "You are experiencing a stream of raw events. Translate them strictly into what you SEE, HEAR, and FEEL physically in the first person.\n" +
-                "Keep it under 50 words. Be observant and literal.";
+                "You are experiencing a stream of raw events. IMPORTANT: Review your LTM first. If you have recently experienced severe trauma or life-altering events, your perception of current mundane events MUST be heavily colored by it (e.g., hypervigilance, dissociation, lingering fear).\n" +
+                "FIRST, write a 1-sentence 'SYNOPSIS' of your overarching mental state based on all your memory.\n" +
+                "THEN, translate the raw events strictly into what you SEE, HEAR, and FEEL physically in the first person.\n" +
+                "Format as:\nSYNOPSIS: ...\nPERCEPTION: ...";
         
-        String userPrompt = "Raw Event: " + rawEvent + "\nSTM Context: " + human.getWorkingMemory();
+        String userPrompt = "LTM (Core Memory): " + human.getMemory() + "\nSTM Context: " + human.getWorkingMemory() + "\nRaw Event: " + rawEvent;
         
-        String perception = openAiClient.generateContent(systemPrompt, userPrompt, MODEL_NANO);
+        String perception = openAiClient.generateContent(systemPrompt, userPrompt, MODEL_HEAVY);
         return perception != null ? perception.trim() : rawEvent;
     }
 
@@ -52,7 +54,8 @@ public class MatrixMindEngine {
      */
     public String generateThought(MatrixHuman human, String perception, String emotion) {
         String systemPrompt = "You are the Thinking Engine (Higher Cortex) for " + human.getName() + ".\n" +
-                "You must synthesize your perception and your emotional state into a concrete thought or action plan.\n" +
+                "You must synthesize your overarching mental state (from Perception), your emotional state, and your core memories into a concrete thought or action plan.\n" +
+                "Do not ignore major past traumas. If you were recently hurt, you will not casually focus on mundane things like drinking chai.\n" +
                 "Write in the first person. What do you conclude? What will you do next? Keep it grounded and realistic. 2-3 sentences.";
         
         String userPrompt = "Personality: " + human.getPersonality() + "\nSTM: " + human.getWorkingMemory() + "\nLTM: " + human.getMemory() + "\n\n" +

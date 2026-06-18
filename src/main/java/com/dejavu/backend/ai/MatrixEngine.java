@@ -153,7 +153,13 @@ public class MatrixEngine {
         if (wm == null) wm = "";
         java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
         String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
-        wm += "\n[" + timeStr + "] " + newEvent;
+        String stampedEvent = "[" + timeStr + "] " + newEvent;
+        wm += "\n" + stampedEvent;
+        
+        String logs = human.getEventLogs();
+        if (logs == null) logs = "";
+        logs += "\n" + stampedEvent;
+        human.setEventLogs(logs);
         
         // Use OpenAI to evaluate if any memory should be shifted to LTM (Single Liner)
         String prompt = "Review this Working Memory of " + human.getName() + ".\n" + wm + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory. If NO, output 'NONE'.";
@@ -218,8 +224,8 @@ public class MatrixEngine {
         
         String decision = openAiClient.generateContent(acceptPrompt);
         if (decision != null && decision.contains("REJECT")) {
-            updateWorkingMemory(caller, "Tried calling " + receiver.getName() + " but they rejected the call.");
-            updateWorkingMemory(receiver, "Rejected an incoming call from " + caller.getName() + ".");
+            updateWorkingMemory(caller, "[CALL REJECTED/CUT] Tried calling " + receiver.getName() + " but they rejected/cut the call.");
+            updateWorkingMemory(receiver, "[CALL REJECTED/CUT] Rejected an incoming call from " + caller.getName() + ".");
             return receiver.getName() + " rejected the call.";
         }
         

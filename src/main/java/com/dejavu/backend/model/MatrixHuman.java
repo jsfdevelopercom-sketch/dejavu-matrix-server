@@ -51,4 +51,9 @@ public class MatrixHuman {
     public void setCurrentDay(int currentDay) { this.currentDay = currentDay; }
     public String getWorkingMemory() { return workingMemory; }
     public void setWorkingMemory(String workingMemory) { this.workingMemory = workingMemory; }
+    
+    @Column(columnDefinition = "TEXT")
+    private String eventLogs;
+    public String getEventLogs() { return eventLogs; }
+    public void setEventLogs(String eventLogs) { this.eventLogs = eventLogs; }
 }
