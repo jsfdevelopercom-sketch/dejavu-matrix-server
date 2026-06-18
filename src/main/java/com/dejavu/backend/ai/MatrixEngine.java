@@ -379,23 +379,33 @@ public class MatrixEngine {
         if (humans.isEmpty()) return "No humans available.";
 
         StringBuilder humanContext = new StringBuilder("Town Square Participants:\n");
-        // Limit to 10 random humans to avoid context limit overflow
+        // Limit to 6 random humans to avoid context limit overflow while still passing memories
         java.util.Collections.shuffle(humans);
-        int maxHumans = Math.min(humans.size(), 10);
+        int maxHumans = Math.min(humans.size(), 6);
         for (int i = 0; i < maxHumans; i++) {
             MatrixHuman h = humans.get(i);
+            
+            String ltm = h.getMemory();
+            if (ltm != null && ltm.length() > 1000) ltm = ltm.substring(ltm.length() - 1000);
+            
+            String stm = h.getWorkingMemory();
+            if (stm != null && stm.length() > 1000) stm = stm.substring(0, 1000);
+
             humanContext.append("- Name: ").append(h.getName())
                     .append(" (").append(h.getOccupation()).append(") | Personality: ")
-                    .append(h.getPersonality()).append("\n");
+                    .append(h.getPersonality()).append("\n")
+                    .append("  [Deep Memory]: ").append(ltm).append("\n")
+                    .append("  [Recent Events/State of Mind]: ").append(stm).append("\n\n");
         }
 
         String systemPrompt = "You are the Matrix Town Square Simulator. You must simulate ONE SINGLE turn of conversation in a group chat containing the humans listed below.\n" +
-                humanContext.toString() + "\n" +
+                humanContext.toString() +
                 "RULES:\n" +
                 "1. Read the recent chat history.\n" +
-                "2. Choose EXACTLY ONE human to respond naturally based on their personality.\n" +
-                "3. If God has just spoken, someone must react to God in awe, fear, or confusion.\n" +
-                "4. Output format MUST be strictly: [Human Name]: [Message]";
+                "2. Choose EXACTLY ONE human to respond naturally based on their deeply held memories and their current psychological state (Recent Events).\n" +
+                "3. If they recently experienced trauma, violation, or joy, it MUST bleed into their tone and what they talk about. Do not act like a generic chatbot; you have a specific mind and past.\n" +
+                "4. If God has just spoken, someone must react to God in awe, fear, or confusion.\n" +
+                "5. Output format MUST be strictly: [Human Name]: [Message]";
 
         String prompt = "Recent Chat History:\n" + chatHistory + "\n";
         if (godMessage != null && !godMessage.trim().isEmpty()) {
