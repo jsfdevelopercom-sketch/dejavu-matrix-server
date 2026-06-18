@@ -55,9 +55,13 @@ public class ActiveMatrixAgent {
         String callTheme = mind.think("Intent Analysis", intentPrompt);
         if (callTheme == null) callTheme = "Casual catch-up.";
 
-        String transcriptPrompt = "Write a realistic transcript between " + caller.getName() + " and " + this.getName() + " about: " + callTheme + "\n" +
-                "Caller Mind:\n" + caller.getMindState() + "\n" +
-                "Receiver Mind:\n" + this.getMindState();
+        String transcriptPrompt = "Write a realistic transcript of a phone call where " + caller.getName() + " is calling " + this.getName() + ". " +
+                "They are discussing: " + callTheme + "\n" +
+                "You MUST use their EXACT names. The transcript format MUST alternate exactly like this:\n" +
+                caller.getName() + ": [dialogue]\n" +
+                this.getName() + ": [dialogue]\n\n" +
+                "Caller Mind (" + caller.getName() + "):\n" + caller.getMindState() + "\n" +
+                "Receiver Mind (" + this.getName() + "):\n" + this.getMindState();
                 
         String transcript = mind.think("Transcript Generation", transcriptPrompt);
         
