@@ -42,8 +42,7 @@ public class MatrixEngine {
     @Autowired
     private DarkArchangelInterviewEngine archangelEngine;
     
-    @Autowired
-    private com.dejavu.backend.controller.AdminController adminController;
+    
     
     @Autowired
     private MatrixWorldMemoryRepository worldMemoryRepository;
