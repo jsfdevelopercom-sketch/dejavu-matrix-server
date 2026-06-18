@@ -19,7 +19,7 @@ public class ScheduledTasks {
     @Autowired
     private com.dejavu.backend.ai.MatrixEngine matrixEngine;
 
-    private boolean autoEnabled = false;
+    private boolean autoEnabled = true;
 
     public boolean isAutoEnabled() { return autoEnabled; }
     public void setAutoEnabled(boolean autoEnabled) { this.autoEnabled = autoEnabled; }
