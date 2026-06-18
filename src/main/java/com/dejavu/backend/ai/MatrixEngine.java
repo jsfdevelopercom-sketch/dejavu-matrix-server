@@ -80,9 +80,9 @@ public class MatrixEngine {
      * @return The saved MatrixHuman entity.
      */
     public MatrixHuman spawnHuman(String name, String params) {
-        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a complex human persona for a simulation situated in the NCR. Generate a concise but rich background, including personality, relations, and dreams. Output ONLY raw JSON.";
+        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a complex human persona for a simulation situated in the NCR. Generate a concise but rich background. Provide an authentic Indian or American name if no name is explicitly given. Output ONLY raw JSON.";
         
-        String n = (name != null && !name.trim().isEmpty()) ? name.trim() : "Randomize a culturally appropriate name";
+        String n = (name != null && !name.trim().isEmpty()) ? name.trim() : "Randomize a culturally appropriate Indian or American name";
         String p = (params != null && !params.trim().isEmpty()) ? params.trim() : "Random";
         
         String userPrompt = "Generate a JSON with the following keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph).\nCRITICAL INSTRUCTION: The 'name' field MUST be: " + n + "\nUser Params: " + p;
@@ -96,14 +96,19 @@ public class MatrixEngine {
                 java.util.Map<String, Object> obj = mapper.readValue(json.trim(), java.util.Map.class);
                 MatrixHuman human = new MatrixHuman();
                 
-                // If explicit name was requested, force it even if JSON says otherwise
                 if (name != null && !name.trim().isEmpty()) {
                     human.setName(name.trim());
                 } else {
                     human.setName(obj.containsKey("name") ? obj.get("name").toString() : "Unknown");
                 }
                 
-                human.setAge(obj.containsKey("age") ? Integer.parseInt(obj.get("age").toString()) : 25);
+                int age = 25;
+                if (obj.containsKey("age")) {
+                    try {
+                        age = Integer.parseInt(obj.get("age").toString().replaceAll("[^0-9]", ""));
+                    } catch (Exception ex) {}
+                }
+                human.setAge(age);
                 human.setGender(obj.containsKey("gender") ? obj.get("gender").toString() : "Unknown");
                 human.setOccupation(obj.containsKey("occupation") ? obj.get("occupation").toString() : "Unemployed");
                 human.setCity(obj.containsKey("city") ? obj.get("city").toString() : "Delhi NCR");
@@ -141,7 +146,7 @@ public class MatrixEngine {
         
         // Fallback if AI fails (e.g. rate limits)
         MatrixHuman human = new MatrixHuman();
-        human.setName((name != null && !name.trim().isEmpty()) ? name.trim() : "Agent Smith " + (int)(Math.random()*1000));
+        human.setName((name != null && !name.trim().isEmpty()) ? name.trim() : "Rajesh Kumar " + (int)(Math.random()*1000));
         human.setAge(35);
         human.setGender("Male");
         human.setOccupation("System Auditor");
@@ -438,7 +443,6 @@ public class MatrixEngine {
                 }
             }
             
-            // Fix missing avatars
             List<MatrixHuman> humans = humanRepository.findAll();
             for (MatrixHuman h : humans) {
                 if (h.getAvatarUrl() == null || h.getAvatarUrl().trim().isEmpty() || h.getAvatarUrl().equals("null")) {
