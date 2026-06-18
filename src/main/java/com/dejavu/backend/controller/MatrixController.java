@@ -25,8 +25,8 @@ public class MatrixController {
     }
 
     @PostMapping("/humans")
-    public ResponseEntity<MatrixHuman> spawnHuman(@RequestParam(required = false) String params) {
-        return ResponseEntity.ok(matrixEngine.spawnHuman(params));
+    public ResponseEntity<MatrixHuman> spawnHuman(@RequestParam(required = false) String name, @RequestParam(required = false) String params) {
+        return ResponseEntity.ok(matrixEngine.spawnHuman(name, params));
     }
 
     @PostMapping("/awaken")

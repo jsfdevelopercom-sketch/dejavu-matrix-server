@@ -78,9 +78,13 @@ public class MatrixEngine {
      * @param params Optional tuning parameters (e.g., "Make them a sad artist").
      * @return The saved MatrixHuman entity.
      */
-    public MatrixHuman spawnHuman(String params) {
-        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a deeply complex human persona for a simulation situated in the NCR (National Capital Region of India). Use real places like Noida, Gurgaon, Delhi, specific colleges, and hangout spots. Generate a minimum of 50 personality points and essential relation points (parents, siblings, issues, medical history, dreams).";
-        String userPrompt = "Generate a JSON with the following keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph). User Params: " + (params != null ? params : "Random");
+    public MatrixHuman spawnHuman(String name, String params) {
+        String systemPrompt = "You are the Matrix Genesis Engine. Your task is to generate a deeply complex human persona for a simulation situated in the NCR (National Capital Region of India). Generate a minimum of 50 personality points and essential relation points (parents, siblings, issues, medical history, dreams).";
+        
+        String n = (name != null && !name.trim().isEmpty()) ? name.trim() : "Randomize a culturally appropriate name";
+        String p = (params != null && !params.trim().isEmpty()) ? params.trim() : "Random";
+        
+        String userPrompt = "Generate a JSON with the following keys: name, age, gender, occupation, city, personality (long paragraph), relations (long paragraph).\nCRITICAL INSTRUCTION: The 'name' field MUST be: " + n + "\nUser Params: " + p;
         
         String json = openAiClient.generateContent(systemPrompt, userPrompt);
         if (json != null) {
@@ -90,7 +94,14 @@ public class MatrixEngine {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 java.util.Map<String, Object> obj = mapper.readValue(json.trim(), java.util.Map.class);
                 MatrixHuman human = new MatrixHuman();
-                human.setName(obj.containsKey("name") ? obj.get("name").toString() : "Unknown");
+                
+                // If explicit name was requested, force it even if JSON says otherwise
+                if (name != null && !name.trim().isEmpty()) {
+                    human.setName(name.trim());
+                } else {
+                    human.setName(obj.containsKey("name") ? obj.get("name").toString() : "Unknown");
+                }
+                
                 human.setAge(obj.containsKey("age") ? Integer.parseInt(obj.get("age").toString()) : 25);
                 human.setGender(obj.containsKey("gender") ? obj.get("gender").toString() : "Unknown");
                 human.setOccupation(obj.containsKey("occupation") ? obj.get("occupation").toString() : "Unemployed");
@@ -126,7 +137,7 @@ public class MatrixEngine {
         
         // Fallback if AI fails (e.g. rate limits)
         MatrixHuman human = new MatrixHuman();
-        human.setName("Agent Smith " + (int)(Math.random()*1000));
+        human.setName((name != null && !name.trim().isEmpty()) ? name.trim() : "Agent Smith " + (int)(Math.random()*1000));
         human.setAge(35);
         human.setGender("Male");
         human.setOccupation("System Auditor");
