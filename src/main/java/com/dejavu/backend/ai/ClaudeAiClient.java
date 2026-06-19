@@ -146,6 +146,9 @@ public class ClaudeAiClient {
             headers.set("anthropic-version", "2023-06-01");
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            
+            System.out.println("\n[CLAUDE DEBUG] Attempting request to " + url);
+            System.out.println("[CLAUDE DEBUG] Payload body: " + objectMapper.writeValueAsString(requestBody));
 
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
