@@ -373,46 +373,28 @@ public class MatrixEngine {
         List<MatrixHuman> humans = humanRepository.findAll();
         if (humans.isEmpty()) return "No humans available.";
 
-        StringBuilder humanContext = new StringBuilder("Town Square Participants:\n");
-        // Limit to 6 random humans to avoid context limit overflow while still passing memories
+        // Randomly select one human to respond, keeping them complete in TOTO
         java.util.Collections.shuffle(humans);
-        int maxHumans = Math.min(humans.size(), 6);
-        for (int i = 0; i < maxHumans; i++) {
-            com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(humans.get(i));
-            humanContext.append("- Name: ").append(agent.getName())
-                    .append(" | Mind State:\n").append(agent.getMindState()).append("\n\n");
-        }
+        MatrixHuman chosenHuman = humans.get(0);
+        com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(chosenHuman);
 
-        String systemPrompt = "You are the Matrix Town Square Simulator. You must simulate ONE SINGLE turn of conversation in a group chat containing the humans listed below.\n" +
-                humanContext.toString() +
-                "RULES:\n" +
-                "1. Read the recent chat history.\n" +
-                "2. Choose EXACTLY ONE human to respond naturally based on their deeply held memories and their current psychological state (Recent Events).\n" +
-                "3. If they recently experienced trauma, violation, or joy, it MUST bleed into their tone and what they talk about. Do not act like a generic chatbot; you have a specific mind and past.\n" +
-                "4. If God has just spoken, someone must react to God in awe, fear, or confusion.\n" +
-                "5. Output format MUST be strictly: [Human Name]: [Message]";
-
-        String prompt = "Recent Chat History:\n" + chatHistory + "\n";
+        String context = "Recent Chat History:\n" + chatHistory + "\n";
         if (godMessage != null && !godMessage.trim().isEmpty()) {
-            prompt += "\nGod: " + godMessage + "\n";
+            context += "\nGod has just announced: " + godMessage + "\n";
         }
-        prompt += "\nGenerate the next single response from one human:";
+        context += "\nRead the chat history and provide your next message. You MUST respond naturally based on your deeply held memories and your current psychological state. If you recently experienced trauma, violation, or joy, it MUST bleed into your tone. Output ONLY your message text, without prefixing your name.";
 
-        String reply = openAiClient.generateContent(systemPrompt, prompt);
+        String replyText = agent.speak("the entire Town Square Group Chat", context);
         
-        if (reply != null) {
-            String senderName = reply.split(":")[0].trim();
-            for (MatrixHuman h : humans) {
-                if (h.getName().equalsIgnoreCase(senderName) || reply.startsWith(h.getName())) {
-                    com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(h);
-                    agent.ponder("I spoke in the town square: " + reply);
-                    humanRepository.save(agent.syncToDatabaseEntity());
-                    break;
-                }
-            }
+        if (replyText != null && !replyText.trim().isEmpty()) {
+            String fullReply = agent.getName() + ": " + replyText.trim();
+            agent.ponder("I spoke in the town square: " + replyText.trim());
+            humanRepository.save(agent.syncToDatabaseEntity());
+            
             triggerGlobalTimeStep();
-            return reply.trim();
+            return fullReply;
         }
+        
         triggerGlobalTimeStep();
         return "System: Silence in the town square.";
     }
