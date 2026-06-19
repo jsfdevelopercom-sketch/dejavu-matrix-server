@@ -116,6 +116,13 @@ public class CostTracker {
         return sb.toString();
     }
 
+    @Scheduled(fixedRate = 3600000) // Every hour
+    public void scheduledSyncAndLog() {
+        System.out.println("[CostTracker] Running scheduled DB to local file sync...");
+        String table = generateCostTable();
+        logLocalText("SYNC", "Periodic DB Cost Sync:\n" + table);
+    }
+
     public void logLocalText(String type, String message) {
         String dateStr = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd").format(LocalDateTime.now());
         File file = new File("api/warnings/cost/" + dateStr + "-log.txt");
