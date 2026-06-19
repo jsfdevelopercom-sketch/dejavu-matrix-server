@@ -22,6 +22,19 @@ public class MatrixController {
     @Autowired
     private com.dejavu.backend.repository.CostWarningRecordRepository warningRepository;
 
+    @Autowired
+    private com.dejavu.backend.ai.GeminiAiClient geminiAiClient;
+
+    @GetMapping("/test-gemini")
+    public ResponseEntity<String> testGemini() {
+        try {
+            String res = geminiAiClient.generateContentLight("Hello. Respond with: Hello from Gemini.", false);
+            return ResponseEntity.ok("Gemini Response: " + res);
+        } catch (Exception e) {
+            return ResponseEntity.ok("Exception: " + e.getMessage());
+        }
+    }
+
     @GetMapping("/warnings")
     public ResponseEntity<List<com.dejavu.backend.model.CostWarningRecord>> getWarnings() {
         return ResponseEntity.ok(warningRepository.findAll());
