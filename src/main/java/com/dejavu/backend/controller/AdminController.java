@@ -289,6 +289,9 @@ public class AdminController {
 
     @Autowired
     private OpenAiClient openAiClient;
+
+    @Autowired
+    private GeminiAiClient geminiAiClient;
     
     @Autowired
     private GeminiAiClient geminiClient;
@@ -490,7 +493,7 @@ public class AdminController {
         String systemPrompt = "You are the Dark Archangel Matrix Engine, an intimidating, highly intellectual, ruthless interrogator. " +
                               "The user is confessing a dark secret. Ask 2 or 3 extremely piercing, highly specific questions to force them to reveal " +
                               "concrete dates, motives, emotional trauma, and sensory details. Be brief but terrifyingly insightful.";
-        String response = openAiClient.generateContentLight(systemPrompt + "\n\nConversation so far:\n" + history);
+        String response = geminiAiClient.generateContentLight(systemPrompt + "\n\nConversation so far:\n" + history);
         return ResponseEntity.ok(response);
     }
 

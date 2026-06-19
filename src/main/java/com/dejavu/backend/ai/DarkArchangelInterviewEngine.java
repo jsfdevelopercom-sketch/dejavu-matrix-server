@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class DarkArchangelInterviewEngine {
 
     @Autowired
-    private OpenAiClient aiClient;
+    private GeminiAiClient aiClient;
 
     @Autowired
     private ConfessionRepository confessionRepository;
@@ -85,6 +85,10 @@ public class DarkArchangelInterviewEngine {
                     
                     if (rawJson == null) {
                         System.err.println("Attempt " + attempt + " failed: rawJson is null.");
+                        continue;
+                    }
+                    if (rawJson.startsWith("[CLAUDE_ERROR]") || rawJson.startsWith("[GEMINI_ERROR]") || rawJson.startsWith("[OPENAI_ERROR]")) {
+                        System.err.println("Attempt " + attempt + " failed: AI returned error string -> " + rawJson);
                         continue;
                     }
                     
