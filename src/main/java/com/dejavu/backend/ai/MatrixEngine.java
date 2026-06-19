@@ -142,6 +142,7 @@ public class MatrixEngine {
                 human.setRelations(obj.containsKey("relations") ? obj.get("relations").toString() : "");
                 human.setMemory("Day 0: Born into the Matrix.\n");
                 human.setEventLogs("Day 0: Spawned into existence.\n");
+                human.setWorkingMemory("Just spawned. I feel disoriented but alive. Where am I?");
                 human.setCurrentDay(0);
                 
                 new Thread(() -> {
