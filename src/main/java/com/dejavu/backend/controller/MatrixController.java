@@ -19,6 +19,14 @@ public class MatrixController {
     @Autowired
     private MatrixHumanRepository humanRepository;
 
+    @Autowired
+    private com.dejavu.backend.repository.CostWarningRecordRepository warningRepository;
+
+    @GetMapping("/warnings")
+    public ResponseEntity<List<com.dejavu.backend.model.CostWarningRecord>> getWarnings() {
+        return ResponseEntity.ok(warningRepository.findAll());
+    }
+
     @GetMapping("/humans")
     public ResponseEntity<List<MatrixHuman>> getHumans() {
         List<MatrixHuman> humans = humanRepository.findAll();

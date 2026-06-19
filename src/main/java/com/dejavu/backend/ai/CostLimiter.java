@@ -23,11 +23,13 @@ public class CostLimiter {
 
     private boolean lowWarningTriggered = false;
     private boolean midWarningTriggered = false;
+    private boolean dailyWarningTriggered = false;
 
     public void checkLimits() {
         if (isCutOff) return; // Already dead
 
         double currentRunCost = costTracker.getThisRunCost();
+        double currentDayCost = costTracker.getCostThisDay();
         
         if (currentRunCost >= CEILING_MARKER && !isCutOff) {
             isCutOff = true;
@@ -50,6 +52,15 @@ public class CostLimiter {
             String table = costTracker.generateCostTable();
             costTracker.logLocalText("WARNING_LOW", message + "\n" + table);
             saveWarningToDb("LOW", message, table);
+        }
+
+        if (currentDayCost >= LOW_MARKER && !dailyWarningTriggered) {
+            dailyWarningTriggered = true;
+            String message = "DAILY LOW WARNING: Cost reached $" + currentDayCost + " today.";
+            System.err.println(message);
+            String table = costTracker.generateCostTable();
+            costTracker.logLocalText("WARNING_DAILY_LOW", message + "\n" + table);
+            saveWarningToDb("DAILY_LOW", message, table);
         }
     }
 

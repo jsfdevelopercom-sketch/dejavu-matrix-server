@@ -33,12 +33,12 @@ public class GeminiAiClient {
     @Autowired
     private CostLimiter costLimiter;
 
-    @Value("${gemini.model:gemini-1.5-pro}")
+    @Value("${gemini.model:gemini-3.1-pro-preview}")
     private String heavyModel;
     public void setHeavyModel(String heavyModel) { this.heavyModel = heavyModel; }
     public String getHeavyModel() { return heavyModel; }
     
-    @Value("${gemini.model.light:gemini-1.5-flash}")
+    @Value("${gemini.model.light:gemini-3-flash-preview}")
     private String lightModel;
     public void setLightModel(String lightModel) { this.lightModel = lightModel; }
     public String getLightModel() { return lightModel; }
@@ -207,6 +207,13 @@ public class GeminiAiClient {
                 }
             }
             return "[GEMINI_ERROR] Response structure invalid or empty.";
+        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+            System.err.println("Gemini API HTTP Error (" + targetModel + "): " + httpEx.getStatusCode() + " " + httpEx.getResponseBodyAsString());
+            if (!isFallback && claudeAiClient != null) {
+                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt, true) : claudeAiClient.generateContentHeavy(prompt, true);
+            }
+            if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
+            return "[GEMINI_ERROR] HTTP Error: " + httpEx.getStatusCode();
         } catch (Exception e) {
             System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back...");
             if (!isFallback && claudeAiClient != null) {
