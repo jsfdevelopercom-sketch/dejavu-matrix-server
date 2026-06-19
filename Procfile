@@ -1,1 +1,1 @@
-web: java -jar build/libs/matrix-server-0.0.1-SNAPSHOT.jar
+web: java -jar build/libs/backend-0.0.1-SNAPSHOT.jar

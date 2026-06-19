@@ -48,28 +48,28 @@ public class DarkArchangelInterviewEngine {
             String probeSystem = "You are a ruthless, analytical data-miner extracting a completely exhaustive history. " +
                     "Read the confession. Generate 15 precise, leading questions to extract dense, concrete data covering the PAST (background, motives, prior events), " +
                     "the PRESENT (the exact timeline, physical actions, locations, tools used during the event), " +
-                    "and the FUTURE (quantifiable consequences, cover-ups, fallout). Do NOT ask about feelings or narrative. Only hard, factual data.";
+                    "and the FUTURE (quantifiable consequences, cover-ups, fallout). Ensure the story has a hook, suspense, and a satisfying conclusion.";
             String probeUser = "Confession: \"" + confession.getText() + "\"";
             String questions = aiClient.generateContentLight(probeSystem + "\n" + probeUser);
 
             // 2. Generate persona and answer the questions
             String personaSystem = "You are the confessor answering questions with DENSE, CONCRETE FACTS ONLY. " +
                     "Zero storytelling, zero fluff, zero emotion. Provide highly specific demographics, dates, times, amounts, and exact actions. " +
-                    "Use bullet points or short factual sentences.";
+                    "Use bullet points or short factual sentences. Ensure the answers build a complete story arc with suspense and a definite conclusion.";
             String personaUser = "Confession: \"" + confession.getText() + "\"\nQuestions:\n" + questions;
             String answers = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
 
             // 3. Generate structured JSON game content
             String jsonSystem = "You are the ArchangelEngine Data Compiler for the 'Confession Card Battle' game. " +
                     "Read the raw data and output a strict JSON structure containing the game content. " +
-                    "CRITICAL REQUIREMENT: Use the content to create the story in SIMPLE language. Output DENSE, factual content. No word inflation. No flowery or complex vocabulary. Keep sentences straightforward and direct. " +
+                    "CRITICAL REQUIREMENT: Use the content to create the story in SIMPLE language. Output DENSE, factual content with a hook, suspense, and completion. No word inflation. No flowery or complex vocabulary. Keep sentences straightforward and direct. " +
                     "RULES:\n" +
                     "- title: 2-4 word factual title.\n" +
                     "- demographics: A JSON object containing strictly extracted or heavily inferred { age, occupation, gender, maritalStatus, locationType }.\n" +
-                    "- fullRevealText: 40-80 words, strictly factual, timeline of events, no fluff.\n" +
+                    "- fullRevealText: 40-80 words, strictly factual, timeline of events, must have a hook and conclusion.\n" +
                     "- anonymizedSummary: 1 factual sentence.\n" +
                     "- qualityScore: 0.0 to 5.0 (must be >= 3.0 to be playable).\n" +
-                    "- fragments: Array of exactly 6 to 10 fragments. Order them chronologically (Situation, Context, Action, Denial, Consequence, Hidden Motive).\n" +
+                    "- fragments: Array of EXACTLY 10 fragments. Order them chronologically (Situation, Context, Action, Denial, Consequence, Hidden Motive, Escalation, Climax, Fallout, Conclusion).\n" +
                     "  Each fragment must have:\n" +
                     "    - emotionFamily (Choose from: Sorrow, Fear, Anger, Guilt, Love, Relief)\n" +
                     "    - emotionShade (e.g. 'regret', 'panic')\n" +

@@ -40,6 +40,9 @@ public class AdminController {
     @Autowired
     private com.dejavu.backend.repository.GuessAttemptRepository guessAttemptRepository;
 
+    @Autowired
+    private com.dejavu.backend.repository.game.ConfessionGameContentRepository gameContentRepository;
+
     @DeleteMapping("/reset-users")
     public ResponseEntity<Void> resetUsers() {
         guessAttemptRepository.deleteAll();
@@ -382,7 +385,17 @@ public class AdminController {
         new Thread(() -> {
             List<Confession> confessions = confessionRepository.findAll();
             for (Confession c : confessions) {
+                boolean needsProcessing = false;
                 if (c.getExtendedStory() == null || c.getExtendedStory().equals(c.getText())) {
+                    needsProcessing = true;
+                } else {
+                    com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
+                    if (gc == null || gc.getFragments() == null || gc.getFragments().size() < 10) {
+                        needsProcessing = true;
+                    }
+                }
+
+                if (needsProcessing) {
                     try {
                         archangelEngine.generateGameContent(c);
                         Thread.sleep(50000); // Wait 50 seconds between processing. Each confession uses 12 AI requests. Free tier limit is 15 requests per minute.
@@ -392,7 +405,7 @@ public class AdminController {
                 }
             }
         }).start();
-        return ResponseEntity.ok("Started background processing of all unexpanded confessions.");
+        return ResponseEntity.ok("Started background processing of all incomplete or unexpanded confessions.");
     }
 
     @PostMapping("/confessions/wipe-stories")

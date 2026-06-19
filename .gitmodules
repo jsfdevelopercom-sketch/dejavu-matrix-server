@@ -1,0 +1,4 @@
+[submodule "matrix-engine"]
+	path = matrix-engine
+	url = https://github.com/jsfdevelopercom-sketch/dejavu-matrix-server.git
+	branch = main
