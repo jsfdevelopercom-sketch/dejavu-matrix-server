@@ -484,6 +484,29 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/archangel/probe")
+    public ResponseEntity<String> archangelProbe(@RequestBody Map<String, String> body) {
+        String history = body.get("history");
+        String systemPrompt = "You are the Dark Archangel Matrix Engine, an intimidating, highly intellectual, ruthless interrogator. " +
+                              "The user is confessing a dark secret. Ask 2 or 3 extremely piercing, highly specific questions to force them to reveal " +
+                              "concrete dates, motives, emotional trauma, and sensory details. Be brief but terrifyingly insightful.";
+        String response = openAiClient.generateContentLight(systemPrompt + "\n\nConversation so far:\n" + history);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/archangel/finalize")
+    public ResponseEntity<String> archangelFinalize(@RequestBody Map<String, String> body) {
+        String history = body.get("history");
+        Confession c = new Confession();
+        c.setText("Archangel Interview Transcript:\n" + history);
+        c = confessionRepository.save(c);
+        
+        Confession finalC = c;
+        new Thread(() -> archangelEngine.generateGameContent(finalC)).start();
+        
+        return ResponseEntity.ok("Saved confession and started judgment. ID: " + c.getId());
+    }
+
     @PostMapping("/confessions/wipe-stories")
     public ResponseEntity<String> wipeAllStories() {
         List<Confession> confessions = confessionRepository.findAll();
