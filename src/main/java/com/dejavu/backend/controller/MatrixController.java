@@ -126,4 +126,17 @@ public class MatrixController {
         }
         return null;
     }
+
+    @Autowired
+    private com.dejavu.backend.repository.RamonNotificationRepository notificationRepository;
+
+    @GetMapping("/notifications")
+    public ResponseEntity<List<com.dejavu.backend.model.RamonNotification>> getNotifications() {
+        List<com.dejavu.backend.model.RamonNotification> notifs = notificationRepository.findByIsReadFalse();
+        for (com.dejavu.backend.model.RamonNotification notif : notifs) {
+            notif.setRead(true);
+            notificationRepository.save(notif);
+        }
+        return ResponseEntity.ok(notifs);
+    }
 }

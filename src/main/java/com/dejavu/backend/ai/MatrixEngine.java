@@ -50,6 +50,9 @@ public class MatrixEngine {
     private ConfessionRepository confessionRepository;
     
     @Autowired
+    private RamonNotificationRepository notificationRepository;
+    
+    @Autowired
     private MatrixMindEngine matrixMindEngine;
     
     @Autowired
@@ -264,6 +267,17 @@ public class MatrixEngine {
                 if (targetHuman != null && !targetHuman.getId().equals(human.getId())) {
                     phoneCall(human.getId(), targetHuman.getId());
                 }
+            }
+            if (thoughts.contains("<CALL_RAMON>")) {
+                com.dejavu.backend.model.RamonNotification notif = new com.dejavu.backend.model.RamonNotification();
+                notif.setHumanId(human.getId());
+                notif.setHumanName(human.getName());
+                notif.setMessage(agent.getName() + " is desperately calling for Ramon! Mind State:\n" + agent.getMindState());
+                notificationRepository.save(notif);
+                
+                // Add a comfort thought
+                agent.ponder("I called out to Ramon. I hope he hears me.");
+                humanRepository.save(agent.syncToDatabaseEntity());
             }
         }
     }
