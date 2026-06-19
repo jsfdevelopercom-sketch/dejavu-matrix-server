@@ -46,7 +46,7 @@ public class DarkArchangelInterviewEngine {
         try {
             // 1. Initial Probe - Ask leading questions to build the history
             String probeSystem = "You are a ruthless, analytical data-miner extracting a completely exhaustive history. " +
-                    "Read the confession. Generate 15 precise, leading questions to extract dense, concrete data covering the PAST (background, motives, prior events), " +
+                    "Read the confession. Generate 25 precise, leading questions to extract dense, concrete data covering the PAST (background, motives, prior events), " +
                     "the PRESENT (the exact timeline, physical actions, locations, tools used during the event), " +
                     "and the FUTURE (quantifiable consequences, cover-ups, fallout). Ensure the story has a hook, suspense, and a satisfying conclusion.";
             String probeUser = "Confession: \"" + confession.getText() + "\"";
@@ -64,16 +64,18 @@ public class DarkArchangelInterviewEngine {
             confessionRepository.save(confession);
 
             // 3. Generate structured JSON game content
-            String jsonSystem = "You are the ArchangelEngine Data Compiler for the 'Confession Card Battle' game. " +
+            String jsonSystem = "You are Aarcus, an Expert Hollywood level story writer for mystery films. " +
                     "Read the raw data and output a strict JSON structure containing the game content. " +
-                    "CRITICAL REQUIREMENT: Use the content to create the story in SIMPLE language. Output DENSE, factual content with a hook, suspense, and completion. No word inflation. No flowery or complex vocabulary. Keep sentences straightforward and direct. " +
+                    "CRITICAL REQUIREMENT: Use the content to create a HIGH adrenaline story in SIMPLE language. Output DENSE, factual content with a hook, suspense, and a massive TWIST at the end. No word inflation. No flowery or complex vocabulary. Keep sentences straightforward and direct. " +
                     "RULES:\n" +
                     "- title: 2-4 word factual title.\n" +
                     "- demographics: A JSON object containing strictly extracted or heavily inferred { age, occupation, gender, maritalStatus, locationType }.\n" +
+                    "- motive: 1-2 sentence description of the deep hidden motive.\n" +
+                    "- emotionalSignificance: 1-2 sentence description of the psychological impact of this event.\n" +
                     "- fullRevealText: 40-80 words, strictly factual, timeline of events, must have a hook and conclusion.\n" +
                     "- anonymizedSummary: 1 factual sentence.\n" +
                     "- qualityScore: 0.0 to 5.0 (must be >= 3.0 to be playable).\n" +
-                    "- fragments: Array of EXACTLY 10 fragments. Order them chronologically (Situation, Context, Action, Denial, Consequence, Hidden Motive, Escalation, Climax, Fallout, Conclusion).\n" +
+                    "- fragments: Array of EXACTLY 10 fragments. Order them chronologically. The last fragment MUST be the finishing piece of the story, preferably a MASSIVE TWIST. DO NOT INCLUDE ANY EXPLANATION OR ENDER LINE IN THE LAST FRAGMENT! It MUST purely be the final action/event of the story.\n" +
                     "  Each fragment must have:\n" +
                     "    - emotionFamily (Choose from: Sorrow, Fear, Anger, Guilt, Love, Relief)\n" +
                     "    - emotionShade (e.g. 'regret', 'panic')\n" +
@@ -108,6 +110,8 @@ public class DarkArchangelInterviewEngine {
                 content.setConfessionId(confession.getId());
                 content.setTitle(root.path("title").asText());
                 content.setDemographics(root.path("demographics").toString()); // Assuming there's a setDemographics method
+                content.setMotive(root.path("motive").asText());
+                content.setEmotionalSignificance(root.path("emotionalSignificance").asText());
                 content.setFullRevealText(root.path("fullRevealText").asText());
                 content.setAnonymizedSummary(root.path("anonymizedSummary").asText());
                 content.setQualityScore(root.path("qualityScore").asDouble());

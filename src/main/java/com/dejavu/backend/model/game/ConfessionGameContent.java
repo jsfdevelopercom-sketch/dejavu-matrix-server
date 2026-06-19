@@ -21,6 +21,10 @@ public class ConfessionGameContent {
     private String anonymizedSummary;
     @Column(columnDefinition = "TEXT")
     private String demographics;
+    @Column(columnDefinition = "TEXT")
+    private String motive;
+    @Column(columnDefinition = "TEXT")
+    private String emotionalSignificance;
     private String createdByModel;
     private Double qualityScore;
     
@@ -61,6 +65,12 @@ public class ConfessionGameContent {
 
     public String getDemographics() { return demographics; }
     public void setDemographics(String demographics) { this.demographics = demographics; }
+
+    public String getMotive() { return motive; }
+    public void setMotive(String motive) { this.motive = motive; }
+
+    public String getEmotionalSignificance() { return emotionalSignificance; }
+    public void setEmotionalSignificance(String emotionalSignificance) { this.emotionalSignificance = emotionalSignificance; }
 
     public String getCreatedByModel() { return createdByModel; }
     public void setCreatedByModel(String createdByModel) { this.createdByModel = createdByModel; }
