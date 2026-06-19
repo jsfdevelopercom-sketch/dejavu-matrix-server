@@ -1,6 +1,8 @@
 package com.dejavu.backend.ai;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpHeaders;
@@ -17,7 +19,7 @@ public class OpenAiClient {
 
     private String apiKey;
 
-    @Value("${GPT_MODEL:gpt-5.5}")
+    @Value("${GPT_MODEL:gpt-4o}")
     private String gptModel;
     
     public void setGptModel(String gptModel) { this.gptModel = gptModel; }
@@ -26,9 +28,15 @@ public class OpenAiClient {
     @Value("${gpt.disabled:false}")
     private boolean gptDisabled;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
+    @Autowired
+    @Lazy
     private GeminiAiClient geminiAiClient;
+
+    @Autowired
+    private CostTracker costTracker;
+
+    @Autowired
+    private CostLimiter costLimiter;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -59,6 +67,11 @@ public class OpenAiClient {
     }
 
     public String generateContent(String systemPrompt, String userPrompt, String overrideModel) {
+        if (costLimiter != null && costLimiter.isApiCutOff()) {
+            System.err.println("API CUTOFF ENGAGED. OPENAI CALL DROPPED.");
+            return null;
+        }
+
         if (gptDisabled) {
             String combinedPrompt = "";
             if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
@@ -67,8 +80,7 @@ public class OpenAiClient {
             if (userPrompt != null) {
                 combinedPrompt += userPrompt;
             }
-            // Use Gemini for everything if GPT is disabled
-            return geminiAiClient.generateContent(combinedPrompt);
+            return geminiAiClient.generateContentHeavy(combinedPrompt);
         }
 
         if (apiKey == null || apiKey.trim().isEmpty()) {
@@ -78,9 +90,11 @@ public class OpenAiClient {
 
         try {
             String url = "https://api.openai.com/v1/chat/completions";
+            String targetModel = (overrideModel != null && !overrideModel.isEmpty() && !overrideModel.contains("gpt-5")) ? overrideModel : gptModel;
             
-            String targetModel = (overrideModel != null && !overrideModel.isEmpty()) ? overrideModel : gptModel;
-            
+            // Hard block on gpt-5
+            if (targetModel.contains("gpt-5")) targetModel = "gpt-4o";
+
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", targetModel);
             
@@ -105,7 +119,6 @@ public class OpenAiClient {
             
             requestBody.put("messages", messages);
             
-
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
@@ -115,6 +128,18 @@ public class OpenAiClient {
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
             
             Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+            
+            // TRACK COST
+            if (responseMap.containsKey("usage")) {
+                Map<String, Object> usage = (Map<String, Object>) responseMap.get("usage");
+                int inTokens = (Integer) usage.getOrDefault("prompt_tokens", 0);
+                int outTokens = (Integer) usage.getOrDefault("completion_tokens", 0);
+                if (costTracker != null) {
+                    costTracker.trackCost("OPENAI", targetModel, inTokens, outTokens);
+                    costLimiter.checkLimits();
+                }
+            }
+
             List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
             if (choices != null && !choices.isEmpty()) {
                 Map<String, Object> choice = choices.get(0);

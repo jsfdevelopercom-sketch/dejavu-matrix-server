@@ -1,6 +1,8 @@
 package com.dejavu.backend.ai;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpHeaders;
@@ -16,8 +18,20 @@ import java.util.List;
 public class GeminiAiClient {
 
     private String apiKey;
-    @org.springframework.beans.factory.annotation.Autowired
+    
+    @Autowired
+    @Lazy
     private OpenAiClient openAiClient;
+
+    @Autowired
+    @Lazy
+    private ClaudeAiClient claudeAiClient;
+
+    @Autowired
+    private CostTracker costTracker;
+
+    @Autowired
+    private CostLimiter costLimiter;
 
     @Value("${gemini.model:gemini-3.1-pro-preview}")
     private String heavyModel;
@@ -68,8 +82,16 @@ public class GeminiAiClient {
     }
 
     private String doGenerate(String prompt, String targetModel) {
+        if (costLimiter != null && costLimiter.isApiCutOff()) {
+            System.err.println("API CUTOFF ENGAGED. GEMINI CALL DROPPED.");
+            return null;
+        }
+
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
-            System.err.println("Gemini AI is disabled or API key is missing. Using OpenAi fallback if allowed.");
+            System.err.println("Gemini AI is disabled or API key is missing. Using Fallbacks.");
+            if (claudeAiClient != null) {
+                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt) : claudeAiClient.generateContentHeavy(prompt);
+            }
             if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return null;
         }
@@ -94,6 +116,18 @@ public class GeminiAiClient {
             
             // Basic extraction (Assuming standard Gemini JSON response structure)
             Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+
+            // TRACK COST
+            if (responseMap.containsKey("usageMetadata")) {
+                Map<String, Object> usage = (Map<String, Object>) responseMap.get("usageMetadata");
+                int inTokens = (Integer) usage.getOrDefault("promptTokenCount", 0);
+                int outTokens = (Integer) usage.getOrDefault("candidatesTokenCount", 0);
+                if (costTracker != null) {
+                    costTracker.trackCost("GEMINI", targetModel, inTokens, outTokens);
+                    costLimiter.checkLimits();
+                }
+            }
+
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseMap.get("candidates");
             if (candidates != null && !candidates.isEmpty()) {
                 Map<String, Object> candidate = candidates.get(0);
@@ -107,7 +141,10 @@ public class GeminiAiClient {
             }
             return null;
         } catch (Exception e) {
-            System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back to GPT.");
+            System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back...");
+            if (claudeAiClient != null) {
+                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt) : claudeAiClient.generateContentHeavy(prompt);
+            }
             if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return null;
         }
