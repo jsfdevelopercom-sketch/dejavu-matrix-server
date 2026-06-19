@@ -47,12 +47,14 @@ public class AgentMind {
             return result;
         }
         
+        System.out.println("Low model output deemed inadequate or failed. Escalating to mid model...");
         // 2. Escalation: Try Mid Model (Fallback to heavy if mid unsupported natively here)
         result = geminiAiClient.generateContentHeavy(combinedInstruction); 
         if (outputJudge.isOutputAdequate(combinedInstruction, result)) {
             return result;
         }
         
+        System.out.println("Mid model output deemed inadequate or failed. Escalating to HIGH model...");
         // 3. Escalation: Try High Model
         return openAiClient.generateContent(systemPrompt, prompt);
     }
