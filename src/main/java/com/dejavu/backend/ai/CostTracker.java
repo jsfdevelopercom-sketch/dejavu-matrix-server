@@ -62,6 +62,9 @@ public class CostTracker {
             } else if (model.contains("haiku")) {
                 inputCostPerM = 1.00;
                 outputCostPerM = 5.00;
+            } else {
+                inputCostPerM = 5.00; // safe heavy fallback
+                outputCostPerM = 25.00;
             }
         }
 
