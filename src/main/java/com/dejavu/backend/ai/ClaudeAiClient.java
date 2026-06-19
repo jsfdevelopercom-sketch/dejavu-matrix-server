@@ -125,7 +125,15 @@ public class ClaudeAiClient {
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", targetModel);
-            requestBody.put("max_tokens", 4096);
+            
+            if (targetModel.contains("opus")) {
+                requestBody.put("max_tokens", 20000);
+                Map<String, Object> thinking = new HashMap<>();
+                thinking.put("type", "adaptive");
+                requestBody.put("thinking", thinking);
+            } else {
+                requestBody.put("max_tokens", 4096);
+            }
 
             Map<String, Object> message = new HashMap<>();
             message.put("role", "user");
