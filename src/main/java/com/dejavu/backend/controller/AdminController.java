@@ -373,10 +373,21 @@ public class AdminController {
     @PostMapping("/confessions/{id}/archangel")
     public ResponseEntity<Map<String, String>> triggerArchangel(@PathVariable Long id) {
         return confessionRepository.findById(id).map(confession -> {
-            archangelEngine.generateGameContent(confession);
+            // Erase old data
+            com.dejavu.backend.model.game.ConfessionGameContent existing = gameContentRepository.findFirstByConfessionId(confession.getId());
+            if (existing != null) {
+                gameContentRepository.delete(existing);
+            }
+            confession.setExtendedStory(null);
+            confessionRepository.save(confession);
+
+            new Thread(() -> {
+                archangelEngine.generateGameContent(confession);
+            }).start();
+            
             Map<String, String> result = new HashMap<>();
-            result.put("message", "Archangel successfully judged the confession.");
-            return ResponseEntity.ok(result);
+            result.put("message", "Archangel successfully started judging the confession.");
+            return ResponseEntity.accepted().body(result);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -386,17 +397,22 @@ public class AdminController {
             List<Confession> confessions = confessionRepository.findAll();
             for (Confession c : confessions) {
                 boolean needsProcessing = false;
+                com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
+                
                 if (c.getExtendedStory() == null || c.getExtendedStory().equals(c.getText())) {
                     needsProcessing = true;
-                } else {
-                    com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
-                    if (gc == null || gc.getFragments() == null || gc.getFragments().size() < 10) {
-                        needsProcessing = true;
-                    }
+                } else if (gc == null || gc.getFragments() == null || gc.getFragments().size() < 10) {
+                    needsProcessing = true;
                 }
 
                 if (needsProcessing) {
                     try {
+                        if (gc != null) {
+                            gameContentRepository.delete(gc);
+                        }
+                        c.setExtendedStory(null);
+                        confessionRepository.save(c);
+
                         archangelEngine.generateGameContent(c);
                         Thread.sleep(50000); // Wait 50 seconds between processing. Each confession uses 12 AI requests. Free tier limit is 15 requests per minute.
                     } catch (Exception e) {

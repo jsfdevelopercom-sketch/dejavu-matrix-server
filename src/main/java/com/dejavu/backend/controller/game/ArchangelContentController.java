@@ -33,6 +33,14 @@ public class ArchangelContentController {
         
         new Thread(() -> {
             try {
+                // Erase old data to force complete re-generation
+                ConfessionGameContent existing = gameContentRepository.findFirstByConfessionId(confession.getId());
+                if (existing != null) {
+                    gameContentRepository.delete(existing);
+                }
+                confession.setExtendedStory(null);
+                confessionRepository.save(confession);
+
                 archangelEngine.generateGameContent(confession);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -57,15 +65,24 @@ public class ArchangelContentController {
             List<Confession> confessions = confessionRepository.findAll();
             for (Confession c : confessions) {
                 ConfessionGameContent existing = gameContentRepository.findFirstByConfessionId(c.getId());
-                if (force && existing != null) {
-                    gameContentRepository.delete(existing);
-                    existing = null;
+                boolean needsProcessing = force;
+                
+                if (c.getExtendedStory() == null || c.getExtendedStory().equals(c.getText())) {
+                    needsProcessing = true;
+                } else if (existing == null || existing.getFragments() == null || existing.getFragments().size() < 10) {
+                    needsProcessing = true;
                 }
                 
-                if (existing == null) {
+                if (needsProcessing) {
                     try {
+                        if (existing != null) {
+                            gameContentRepository.delete(existing);
+                        }
+                        c.setExtendedStory(null);
+                        confessionRepository.save(c);
+
                         archangelEngine.generateGameContent(c);
-                        Thread.sleep(500); // slight delay to avoid overwhelming APIs
+                        Thread.sleep(50000); // Wait 50s. AI takes heavy toll.
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
