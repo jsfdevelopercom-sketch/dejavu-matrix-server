@@ -69,19 +69,27 @@ public class GeminiAiClient {
     }
 
     public String generateContentHeavy(String prompt) {
-        return doGenerate(prompt, heavyModel);
+        return doGenerate(prompt, heavyModel, false);
     }
     
     public String generateContentLight(String prompt) {
-        return doGenerate(prompt, lightModel);
+        return doGenerate(prompt, lightModel, false);
+    }
+
+    public String generateContentHeavy(String prompt, boolean isFallback) {
+        return doGenerate(prompt, heavyModel, isFallback);
+    }
+    
+    public String generateContentLight(String prompt, boolean isFallback) {
+        return doGenerate(prompt, lightModel, isFallback);
     }
     
     // Kept for backwards compatibility just in case, but routes to heavy by default
     public String generateContent(String prompt) {
-        return doGenerate(prompt, heavyModel);
+        return doGenerate(prompt, heavyModel, false);
     }
 
-    private String doGenerate(String prompt, String targetModel) {
+    private String doGenerate(String prompt, String targetModel, boolean isFallback) {
         if (costLimiter != null && costLimiter.isApiCutOff()) {
             System.err.println("API CUTOFF ENGAGED. GEMINI CALL DROPPED.");
             return null;
@@ -93,11 +101,11 @@ public class GeminiAiClient {
 
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("Gemini AI is disabled or API key is missing. Using Fallbacks.");
-            if (claudeAiClient != null) {
-                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt) : claudeAiClient.generateContentHeavy(prompt);
+            if (!isFallback && claudeAiClient != null) {
+                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt, true) : claudeAiClient.generateContentHeavy(prompt, true);
             }
-            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
-            return null;
+            if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
+            return "[GEMINI_ERROR] API key missing or AI disabled.";
         }
 
         try {
@@ -143,14 +151,14 @@ public class GeminiAiClient {
                     }
                 }
             }
-            return null;
+            return "[GEMINI_ERROR] Response structure invalid or empty.";
         } catch (Exception e) {
             System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back...");
-            if (claudeAiClient != null) {
-                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt) : claudeAiClient.generateContentHeavy(prompt);
+            if (!isFallback && claudeAiClient != null) {
+                 return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt, true) : claudeAiClient.generateContentHeavy(prompt, true);
             }
-            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
-            return null;
+            if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
+            return "[GEMINI_ERROR] API call failed (" + targetModel + "): " + e.getMessage();
         }
     }
 }

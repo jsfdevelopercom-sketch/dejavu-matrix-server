@@ -67,22 +67,34 @@ public class ClaudeAiClient {
     }
 
     public String generateContentHeavy(String prompt) {
-        return doGenerate(prompt, heavyModel);
+        return doGenerate(prompt, heavyModel, false);
     }
 
     public String generateContentMedium(String prompt) {
-        return doGenerate(prompt, mediumModel);
+        return doGenerate(prompt, mediumModel, false);
     }
 
     public String generateContentLight(String prompt) {
-        return doGenerate(prompt, lightModel);
+        return doGenerate(prompt, lightModel, false);
+    }
+
+    public String generateContentHeavy(String prompt, boolean isFallback) {
+        return doGenerate(prompt, heavyModel, isFallback);
+    }
+
+    public String generateContentMedium(String prompt, boolean isFallback) {
+        return doGenerate(prompt, mediumModel, isFallback);
+    }
+
+    public String generateContentLight(String prompt, boolean isFallback) {
+        return doGenerate(prompt, lightModel, isFallback);
     }
 
     public String generateContent(String prompt) {
-        return doGenerate(prompt, heavyModel);
+        return doGenerate(prompt, heavyModel, false);
     }
 
-    private String doGenerate(String prompt, String targetModel) {
+    private String doGenerate(String prompt, String targetModel, boolean isFallback) {
         if (costLimiter != null && costLimiter.isApiCutOff()) {
             System.err.println("API CUTOFF ENGAGED. CLAUDE CALL DROPPED.");
             return null;
@@ -98,11 +110,11 @@ public class ClaudeAiClient {
 
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("Claude AI is disabled or API key is missing. Using Fallbacks.");
-            if (geminiAiClient != null) {
-                return targetModel.equals(lightModel) ? geminiAiClient.generateContentLight(prompt) : geminiAiClient.generateContentHeavy(prompt);
+            if (!isFallback && geminiAiClient != null) {
+                return targetModel.equals(lightModel) ? geminiAiClient.generateContentLight(prompt, true) : geminiAiClient.generateContentHeavy(prompt, true);
             }
-            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
-            return null;
+            if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
+            return "[CLAUDE_ERROR] API key missing or AI disabled.";
         }
 
         try {
@@ -146,14 +158,14 @@ public class ClaudeAiClient {
                     return (String) textPart.get("text");
                 }
             }
-            return null;
+            return "[CLAUDE_ERROR] Response structure invalid or empty.";
         } catch (Exception e) {
             System.err.println("Claude API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back...");
-            if (geminiAiClient != null) {
-                return targetModel.equals(lightModel) ? geminiAiClient.generateContentLight(prompt) : geminiAiClient.generateContentHeavy(prompt);
+            if (!isFallback && geminiAiClient != null) {
+                return targetModel.equals(lightModel) ? geminiAiClient.generateContentLight(prompt, true) : geminiAiClient.generateContentHeavy(prompt, true);
             }
-            if (openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
-            return null;
+            if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
+            return "[CLAUDE_ERROR] API call failed (" + targetModel + "): " + e.getMessage();
         }
     }
 }
