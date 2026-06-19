@@ -34,13 +34,13 @@ public class ClaudeAiClient {
     @Autowired
     private CostLimiter costLimiter;
 
-    @Value("${claude.model.heavy:claude-opus-4-8}")
+    @Value("${claude.model.heavy:claude-3-opus-20240229}")
     private String heavyModel;
 
-    @Value("${claude.model.medium:claude-sonnet-4-6}")
+    @Value("${claude.model.medium:claude-3-5-sonnet-20241022}")
     private String mediumModel;
 
-    @Value("${claude.model.light:claude-haiku-4-5-20251001}")
+    @Value("${claude.model.light:claude-3-5-haiku-20241022}")
     private String lightModel;
 
     @Value("${ai.enabled:true}")
