@@ -88,6 +88,14 @@ public class ClaudeAiClient {
             return null;
         }
 
+        if (costLimiter != null) {
+            if (targetModel.equals(heavyModel)) {
+                prompt = costLimiter.enforcePromptSizeLimit(prompt, "HIGH");
+            } else if (targetModel.equals(mediumModel)) {
+                prompt = costLimiter.enforcePromptSizeLimit(prompt, "MID");
+            }
+        }
+
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("Claude AI is disabled or API key is missing. Using Fallbacks.");
             if (geminiAiClient != null) {

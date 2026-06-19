@@ -3,28 +3,56 @@ package com.dejavu.backend.ai.agent;
 import com.dejavu.backend.ai.OpenAiClient;
 import com.dejavu.backend.ai.GeminiAiClient;
 
+import com.dejavu.backend.ai.MemoryCondenser;
+import com.dejavu.backend.ai.AiOutputJudge;
+
 public class AgentMind {
 
     private final OpenAiClient openAiClient;
     private final GeminiAiClient geminiAiClient;
+    private final MemoryCondenser memoryCondenser;
+    private final AiOutputJudge outputJudge;
     
     // The internal state
     private String longTermMemory;
     private String shortTermMemory;
     private String personality;
 
-    public AgentMind(OpenAiClient openAiClient, GeminiAiClient geminiAiClient, String personality, String ltm, String stm) {
+    public AgentMind(OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, String personality, String ltm, String stm) {
         this.openAiClient = openAiClient;
         this.geminiAiClient = geminiAiClient;
+        this.memoryCondenser = memoryCondenser;
+        this.outputJudge = outputJudge;
         this.personality = personality;
         this.longTermMemory = ltm == null ? "" : ltm;
         this.shortTermMemory = stm == null ? "" : stm;
     }
 
     public String think(String context, String prompt) {
-        String systemPrompt = "You are a human mind in the Matrix. Personality: " + personality + "\nLTM: " + longTermMemory + "\nSTM: " + shortTermMemory + "\nContext: " + context;
-        String result = geminiAiClient.generateContentHeavy(systemPrompt + "\n\n" + prompt);
-        return result != null ? result : openAiClient.generateContent(systemPrompt, prompt);
+        String condensedMemory = memoryCondenser.condense(longTermMemory, shortTermMemory);
+        String systemPrompt = "You are a human mind in the Matrix. Personality: " + personality + "\nCondensed Memory: " + condensedMemory + "\nContext: " + context;
+        String combinedInstruction = systemPrompt + "\n\n" + prompt;
+        
+        // 1. Try Low Model
+        String result = geminiAiClient.generateContentLight(combinedInstruction);
+        if (outputJudge.isOutputAdequate(combinedInstruction, result)) {
+            return result;
+        }
+        
+        // 2. Escalation: Try Mid Model (Fallback to heavy if mid unsupported natively here)
+        result = geminiAiClient.generateContentHeavy(combinedInstruction); 
+        if (outputJudge.isOutputAdequate(combinedInstruction, result)) {
+            return result;
+        }
+        
+        // 3. Escalation: Try High Model
+        return openAiClient.generateContent(systemPrompt, prompt);
+    }
+
+    public String thinkHeavy(String context, String prompt) {
+        String condensedMemory = memoryCondenser.condense(longTermMemory, shortTermMemory);
+        String systemPrompt = "You are a human mind in the Matrix. Personality: " + personality + "\nCondensed Memory: " + condensedMemory + "\nContext: " + context;
+        return openAiClient.generateContent(systemPrompt, prompt);
     }
 
     public String processEvent(String event) {

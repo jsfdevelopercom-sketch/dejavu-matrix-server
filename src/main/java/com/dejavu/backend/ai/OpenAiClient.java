@@ -72,14 +72,19 @@ public class OpenAiClient {
             return null;
         }
 
+        String combinedPrompt = "";
+        if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
+            combinedPrompt += systemPrompt + "\n\n";
+        }
+        if (userPrompt != null) {
+            combinedPrompt += userPrompt;
+        }
+
+        if (costLimiter != null) {
+            combinedPrompt = costLimiter.enforcePromptSizeLimit(combinedPrompt, "HIGH");
+        }
+
         if (gptDisabled) {
-            String combinedPrompt = "";
-            if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
-                combinedPrompt += systemPrompt + "\n\n";
-            }
-            if (userPrompt != null) {
-                combinedPrompt += userPrompt;
-            }
             return geminiAiClient.generateContentHeavy(combinedPrompt);
         }
 
@@ -105,16 +110,9 @@ public class OpenAiClient {
             }
             
             List<Map<String, String>> messages = new java.util.ArrayList<>();
-            if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
-                Map<String, String> sysMsg = new HashMap<>();
-                sysMsg.put("role", "system");
-                sysMsg.put("content", systemPrompt);
-                messages.add(sysMsg);
-            }
-            
             Map<String, String> userMsg = new HashMap<>();
             userMsg.put("role", "user");
-            userMsg.put("content", userPrompt);
+            userMsg.put("content", combinedPrompt);
             messages.add(userMsg);
             
             requestBody.put("messages", messages);

@@ -3,6 +3,8 @@ package com.dejavu.backend.ai.agent;
 import com.dejavu.backend.ai.OpenAiClient;
 import com.dejavu.backend.ai.GeminiAiClient;
 import com.dejavu.backend.model.MatrixHuman;
+import com.dejavu.backend.ai.MemoryCondenser;
+import com.dejavu.backend.ai.AiOutputJudge;
 
 public class ActiveMatrixAgent {
 
@@ -10,10 +12,10 @@ public class ActiveMatrixAgent {
     private final AgentMind mind;
     private final OpenAiClient openAiClient;
 
-    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient) {
+    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge) {
         this.entity = entity;
         this.openAiClient = openAiClient;
-        this.mind = new AgentMind(openAiClient, geminiAiClient, entity.getPersonality(), entity.getMemory(), entity.getWorkingMemory());
+        this.mind = new AgentMind(openAiClient, geminiAiClient, memoryCondenser, outputJudge, entity.getPersonality(), entity.getMemory(), entity.getWorkingMemory());
     }
 
     public String speak(String targetName, String context) {
@@ -31,7 +33,7 @@ public class ActiveMatrixAgent {
         
         String prompt = "Simulate a day in your life. Run your routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of your day. " + worldNews + " CRITICAL RULE: DO NOT hallucinate interactions with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
         String systemPrompt = "You are " + entity.getName() + ".\nOccupation: " + entity.getOccupation() + "\nAge: " + entity.getAge() + "\nPersonality: " + entity.getPersonality();
-        String rawDayEvents = mind.think("Daily Simulation", systemPrompt + "\n\n" + prompt);
+        String rawDayEvents = mind.thinkHeavy("Daily Simulation", systemPrompt + "\n\n" + prompt);
         
         if (rawDayEvents != null) {
             String thoughts = ponder("Day " + entity.getCurrentDay() + " Events: " + rawDayEvents);

@@ -87,6 +87,10 @@ public class GeminiAiClient {
             return null;
         }
 
+        if (costLimiter != null && targetModel.equals(heavyModel)) {
+            prompt = costLimiter.enforcePromptSizeLimit(prompt, "HIGH");
+        }
+
         if (!aiEnabled || apiKey == null || apiKey.trim().isEmpty()) {
             System.err.println("Gemini AI is disabled or API key is missing. Using Fallbacks.");
             if (claudeAiClient != null) {

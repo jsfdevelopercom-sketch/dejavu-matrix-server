@@ -24,7 +24,7 @@ public class CostLimiter {
     private boolean lowWarningTriggered = false;
     private boolean midWarningTriggered = false;
 
-    public synchronized void checkLimits() {
+    public void checkLimits() {
         if (isCutOff) return; // Already dead
 
         double currentRunCost = costTracker.getThisRunCost();
@@ -51,6 +51,22 @@ public class CostLimiter {
             costTracker.logLocalText("WARNING_LOW", message + "\n" + table);
             saveWarningToDb("LOW", message, table);
         }
+    }
+
+    public String enforcePromptSizeLimit(String prompt, String modelTier) {
+        if (prompt == null) return null;
+        if (modelTier.equalsIgnoreCase("HIGH") || modelTier.equalsIgnoreCase("MID")) {
+            String[] words = prompt.split("\\s+");
+            if (words.length > 300) {
+                System.err.println("HARD FILTER TRIGGERED: " + modelTier + " model prompt exceeded 300 words (" + words.length + "). Truncating.");
+                StringBuilder truncated = new StringBuilder();
+                for (int i = 0; i < 300; i++) {
+                    truncated.append(words[i]).append(" ");
+                }
+                return truncated.toString().trim();
+            }
+        }
+        return prompt;
     }
 
     private void saveWarningToDb(String level, String message, String table) {
