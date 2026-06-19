@@ -2,6 +2,7 @@ package com.dejavu.backend.ai.agent;
 
 import com.dejavu.backend.ai.OpenAiClient;
 import com.dejavu.backend.ai.GeminiAiClient;
+import com.dejavu.backend.ai.ClaudeAiClient;
 import com.dejavu.backend.model.MatrixHuman;
 import com.dejavu.backend.ai.MemoryCondenser;
 import com.dejavu.backend.ai.AiOutputJudge;
@@ -14,10 +15,10 @@ public class ActiveMatrixAgent {
     private final AgentMind mind;
     private final OpenAiClient openAiClient;
 
-    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, PersonalityEngine personalityEngine, RelationsEngine relationsEngine) {
+    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient, ClaudeAiClient claudeAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, PersonalityEngine personalityEngine, RelationsEngine relationsEngine) {
         this.entity = entity;
         this.openAiClient = openAiClient;
-        this.mind = new AgentMind(openAiClient, geminiAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine, entity.getPersonality(), entity.getRelations(), entity.getMemory(), entity.getWorkingMemory(), entity.getEventLogs());
+        this.mind = new AgentMind(openAiClient, geminiAiClient, claudeAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine, entity.getPersonality(), entity.getRelations(), entity.getMemory(), entity.getWorkingMemory(), entity.getEventLogs());
     }
 
     public String speak(String targetName, String context) {
@@ -27,7 +28,7 @@ public class ActiveMatrixAgent {
 
     public String ponder(String thoughtOrEvent) {
         String instruction = "\n[SYSTEM INSTRUCTION]: You possess a smartphone. If this event makes you feel a strong urge to call another specific human you know, you MUST append `<CALL:FirstName LastName>` to your thoughts.";
-        return mind.processEvent(thoughtOrEvent + instruction);
+        return mind.think("Pondering", thoughtOrEvent + instruction);
     }
 
     public String experienceDay(String worldNews) {
@@ -35,7 +36,7 @@ public class ActiveMatrixAgent {
         
         String prompt = "Simulate a day in your life. Run your routine for 10 simulated minutes which equals an entire day. Produce a concise narrative of the events of your day. " + worldNews + " CRITICAL RULE: DO NOT hallucinate interactions with other specific named characters in the Matrix. You must strictly focus on your own solo activities, your job, generic strangers, or your own internal thoughts. Any interaction with another specific named character will ONLY occur if initiated via a system-level Phone Call or World Event. Never invent a reality where you hung out with a specific person unless they are explicitly mentioned in your Event Logs.";
         String systemPrompt = "You are " + entity.getName() + ".\nOccupation: " + entity.getOccupation() + "\nAge: " + entity.getAge() + "\nPersonality: " + entity.getPersonality();
-        String rawDayEvents = mind.thinkHeavy("Daily Simulation", systemPrompt + "\n\n" + prompt);
+        String rawDayEvents = mind.think("Daily Simulation", systemPrompt + "\n\n" + prompt);
         
         if (rawDayEvents != null) {
             String thoughts = ponder("Day " + entity.getCurrentDay() + " Events: " + rawDayEvents);

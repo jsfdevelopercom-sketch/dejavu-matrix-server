@@ -67,7 +67,7 @@ public class GeminiAiClient {
         }
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000); // 10 seconds
-        factory.setReadTimeout(180000); // 3 minutes maximum for heavy models
+        factory.setReadTimeout(45000); // 45 seconds maximum for models
         this.restTemplate = new RestTemplate(factory);
     }
 
@@ -174,6 +174,11 @@ public class GeminiAiClient {
             safetySettings.add(Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"));
             safetySettings.add(Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE"));
             requestBody.put("safetySettings", safetySettings);
+
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("maxOutputTokens", 8192);
+            generationConfig.put("temperature", 0.7);
+            requestBody.put("generationConfig", generationConfig);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

@@ -391,10 +391,22 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    public static String archangelStatus = "Idle";
+
+    @GetMapping("/confessions/archangel-status")
+    public ResponseEntity<Map<String, String>> getArchangelStatus() {
+        Map<String, String> status = new HashMap<>();
+        status.put("status", archangelStatus);
+        return ResponseEntity.ok(status);
+    }
+
     @PostMapping("/confessions/archangel-all")
     public ResponseEntity<String> triggerArchangelAll() {
+        archangelStatus = "Starting...";
         new Thread(() -> {
             List<Confession> confessions = confessionRepository.findAll();
+            int total = confessions.size();
+            int i = 1;
             for (Confession c : confessions) {
                 boolean needsProcessing = false;
                 com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
@@ -407,6 +419,7 @@ public class AdminController {
 
                 if (needsProcessing) {
                     try {
+                        archangelStatus = "Processing " + i + "/" + total + " [ID: " + c.getId() + "]...";
                         if (gc != null) {
                             gameContentRepository.delete(gc);
                         }
@@ -417,11 +430,44 @@ public class AdminController {
                         Thread.sleep(50000); // Wait 50 seconds between processing. Each confession uses 12 AI requests. Free tier limit is 15 requests per minute.
                     } catch (Exception e) {
                         System.err.println("Failed to process confession " + c.getId() + ": " + e.getMessage());
+                        archangelStatus = "Error on " + c.getId() + ": " + e.getMessage();
                     }
                 }
+                i++;
             }
+            archangelStatus = "Idle (Completed " + (i-1) + ")";
         }).start();
         return ResponseEntity.ok("Started background processing of all incomplete or unexpanded confessions.");
+    }
+
+    @PostMapping("/confessions/force-archangel-all")
+    public ResponseEntity<String> forceArchangelAll() {
+        archangelStatus = "Starting FORCE RE-PROCESS...";
+        new Thread(() -> {
+            List<Confession> confessions = confessionRepository.findAll();
+            int total = confessions.size();
+            int i = 1;
+            for (Confession c : confessions) {
+                try {
+                    archangelStatus = "FORCE Processing " + i + "/" + total + " [ID: " + c.getId() + "]...";
+                    com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
+                    if (gc != null) {
+                        gameContentRepository.delete(gc);
+                    }
+                    c.setExtendedStory(null);
+                    confessionRepository.save(c);
+
+                    archangelEngine.generateGameContent(c);
+                    Thread.sleep(50000); // Wait 50 seconds to respect rate limits
+                } catch (Exception e) {
+                    System.err.println("Failed to force process confession " + c.getId() + ": " + e.getMessage());
+                    archangelStatus = "Error on " + c.getId() + ": " + e.getMessage();
+                }
+                i++;
+            }
+            archangelStatus = "Idle (Completed " + (i-1) + " Forced)";
+        }).start();
+        return ResponseEntity.ok("Started FORCED background processing of ALL confessions.");
     }
 
     @PostMapping("/confessions/wipe-stories")

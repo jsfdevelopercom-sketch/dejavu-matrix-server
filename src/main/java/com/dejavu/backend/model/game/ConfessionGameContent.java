@@ -31,7 +31,7 @@ public class ConfessionGameContent {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "gameContent", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "gameContent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ConfessionFragment> fragments = new ArrayList<>();
 
     @PrePersist

@@ -32,6 +32,9 @@ public class MatrixEngine {
     private GeminiAiClient geminiAiClient;
 
     @Autowired
+    private ClaudeAiClient claudeAiClient;
+
+    @Autowired
     private MemoryCondenser memoryCondenser;
 
     @Autowired
@@ -214,32 +217,19 @@ public class MatrixEngine {
     public void awakenMatrix() {
         new Thread(() -> {
             List<MatrixHuman> humans = humanRepository.findAll();
-            ExecutorService executor = Executors.newFixedThreadPool(10);
             for (MatrixHuman human : humans) {
                 try {
-                    Thread.sleep(6000); // 6s delay to prevent Free Tier 15 RPM Rate Limit
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    Thread.sleep(8000); // 8s delay, single thread, to protect free tier API
+                    simulateDay(human);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                executor.submit(() -> {
-                    try {
-                        simulateDay(human);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                });
-            }
-            executor.shutdown();
-            try {
-                executor.awaitTermination(30, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
             }
         }).start();
     }
 
     public ActiveMatrixAgent getAgent(MatrixHuman human) {
-        return new com.dejavu.backend.ai.agent.ActiveMatrixAgent(human, openAiClient, geminiAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine);
+        return new com.dejavu.backend.ai.agent.ActiveMatrixAgent(human, openAiClient, geminiAiClient, claudeAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine);
     }
 
     private void simulateDay(MatrixHuman human) {
@@ -358,9 +348,11 @@ public class MatrixEngine {
         String reply = agent.speak("a mysterious man named Ramon", userMessage);
         
         if (reply != null) {
-            agent.ponder("[Chat with mystery man Ramon] Ramon: " + userMessage + " | My Reply: " + reply.trim());
-            humanRepository.save(agent.syncToDatabaseEntity());
-            triggerGlobalTimeStep();
+            new Thread(() -> {
+                agent.ponder("[Chat with mystery man Ramon] Ramon: " + userMessage + " | My Reply: " + reply.trim());
+                humanRepository.save(agent.syncToDatabaseEntity());
+                triggerGlobalTimeStep();
+            }).start();
             return reply.trim();
         }
         return "Human is non-responsive.";

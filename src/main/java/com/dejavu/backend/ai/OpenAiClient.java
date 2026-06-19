@@ -54,12 +54,20 @@ public class OpenAiClient {
         }
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000); // 10 seconds
-        factory.setReadTimeout(180000); // 3 minutes maximum
+        factory.setReadTimeout(45000); // 45 seconds maximum
         this.restTemplate = new RestTemplate(factory);
     }
 
     public String generateContent(String prompt) {
         return generateContent(null, prompt);
+    }
+
+    public String generateContentLight(String systemPrompt, String userPrompt) {
+        return generateContent(systemPrompt, userPrompt, "gpt-4o-mini");
+    }
+
+    public String generateContentLight(String prompt) {
+        return generateContent(null, prompt, "gpt-4o-mini");
     }
 
     public String generateContent(String systemPrompt, String userPrompt) {

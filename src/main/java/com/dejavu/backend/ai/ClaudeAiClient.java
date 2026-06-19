@@ -65,7 +65,7 @@ public class ClaudeAiClient {
         }
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
-        factory.setReadTimeout(180000);
+        factory.setReadTimeout(45000);
         this.restTemplate = new RestTemplate(factory);
     }
 

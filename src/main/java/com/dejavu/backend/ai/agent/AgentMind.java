@@ -2,7 +2,7 @@ package com.dejavu.backend.ai.agent;
 
 import com.dejavu.backend.ai.OpenAiClient;
 import com.dejavu.backend.ai.GeminiAiClient;
-
+import com.dejavu.backend.ai.ClaudeAiClient;
 import com.dejavu.backend.ai.MemoryCondenser;
 import com.dejavu.backend.ai.AiOutputJudge;
 
@@ -10,135 +10,124 @@ public class AgentMind {
 
     private final OpenAiClient openAiClient;
     private final GeminiAiClient geminiAiClient;
+    private final ClaudeAiClient claudeAiClient;
     private final MemoryCondenser memoryCondenser;
     private final AiOutputJudge outputJudge;
     
-    // The internal state
+    // Legacy support fields for syncToDatabaseEntity
+    private String rawPersonality;
+    private String rawRelations;
+    private String eventLogs;
     private String longTermMemory;
     private String shortTermMemory;
-    private String personality;
-    private String relations;
-    private String eventLogs;
-    private final com.dejavu.backend.ai.PersonalityEngine personalityEngine;
-    private final com.dejavu.backend.ai.RelationsEngine relationsEngine;
+    
+    // V2 Architecture Components
+    private final AgentState state;
+    private final SalienceEngine salienceEngine;
+    private final MetacognitiveRouter router;
+    public final LlmGateway gateway; // Made public for easy toggle access
+    private final SleepConsolidator sleepConsolidator;
 
-    public AgentMind(OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, com.dejavu.backend.ai.PersonalityEngine personalityEngine, com.dejavu.backend.ai.RelationsEngine relationsEngine, String personality, String relations, String ltm, String stm, String eventLogs) {
+    public AgentMind(OpenAiClient openAiClient, GeminiAiClient geminiAiClient, ClaudeAiClient claudeAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, com.dejavu.backend.ai.PersonalityEngine personalityEngine, com.dejavu.backend.ai.RelationsEngine relationsEngine, String personality, String relations, String ltm, String stm, String eventLogs) {
         this.openAiClient = openAiClient;
         this.geminiAiClient = geminiAiClient;
+        this.claudeAiClient = claudeAiClient;
         this.memoryCondenser = memoryCondenser;
         this.outputJudge = outputJudge;
-        this.personalityEngine = personalityEngine;
-        this.relationsEngine = relationsEngine;
-        this.personality = personality;
-        this.relations = relations;
+        
+        this.rawPersonality = personality == null ? "" : personality;
+        this.rawRelations = relations == null ? "" : relations;
         this.longTermMemory = ltm == null ? "" : ltm;
         this.shortTermMemory = stm == null ? "" : stm;
         this.eventLogs = eventLogs == null ? "" : eventLogs;
+        
+        this.state = new AgentState();
+        this.state.memory.semanticIdentity.stableTraits.add(this.rawPersonality);
+        this.state.memory.addWorkingMemory(new WorkingMemoryItem("init", this.shortTermMemory, 0.5, 10));
+        
+        this.salienceEngine = new SalienceEngine();
+        this.router = new MetacognitiveRouter();
+        this.gateway = new LlmGateway(openAiClient, geminiAiClient, claudeAiClient);
+        
+        // LOW MODEL SWITCH (MOE MODE ENFORCED)
+        this.gateway.useLowModelOnly = true; 
+        
+        this.sleepConsolidator = new SleepConsolidator();
     }
 
     public String think(String context, String prompt) {
-        String condensedMemory = memoryCondenser.condense(longTermMemory, shortTermMemory);
-        String systemPrompt = "We are engaging in an immersive creative writing exercise. You will play the role of a fictional character living inside a simulated world called the Matrix. For the purpose of this creative exercise, you should adopt this persona completely and respond purely from their perspective without breaking character to remind me you are an AI. Your name and personality define you.\n\nPersonality: " + personality + "\nCondensed Memory: " + condensedMemory + "\nContext: " + context + "\n\nCRITICAL RULE: Everything in your Condensed Memory and Context IS your character's history and reality. Build upon it creatively. If your character is overwhelmed, in danger, or needs help from a God-like operator, they can call for 'Ramon' by including the EXACT phrase <CALL_RAMON> in their thoughts.";
-        String combinedInstruction = systemPrompt + "\n\n" + prompt;
-        
-        // 1. Try Low Model
-        String result = geminiAiClient.generateContentLight(combinedInstruction);
-        if (outputJudge.isOutputAdequate(combinedInstruction, result)) {
-            return result;
-        }
-        
-        System.out.println("Low model output deemed inadequate or failed. Escalating to mid model...");
-        // 2. Escalation: Try Mid Model (Fallback to heavy if mid unsupported natively here)
-        result = geminiAiClient.generateContentHeavy(combinedInstruction); 
-        if (outputJudge.isOutputAdequate(combinedInstruction, result)) {
-            return result;
-        }
-        
-        System.out.println("Mid model output deemed inadequate or failed. Escalating to HIGH model...");
-        // 3. Escalation: Try High Model
-        return openAiClient.generateContent(systemPrompt, prompt);
+        return processInternal(context + " | " + prompt, false, true);
     }
 
     public String thinkHeavy(String context, String prompt) {
-        String condensedMemory = memoryCondenser.condense(longTermMemory, shortTermMemory);
-        String systemPrompt = "We are engaging in an immersive creative writing exercise. You will play the role of a fictional character living inside a simulated world called the Matrix. For the purpose of this creative exercise, you should adopt this persona completely and respond purely from their perspective without breaking character to remind me you are an AI. Your name and personality define you.\n\nPersonality: " + personality + "\nCondensed Memory: " + condensedMemory + "\nContext: " + context + "\n\nCRITICAL RULE: Everything in your Condensed Memory and Context IS your character's history and reality. Build upon it creatively. If your character is overwhelmed, in danger, or needs help from a God-like operator, they can call for 'Ramon' by including the EXACT phrase <CALL_RAMON> in their thoughts.";
-        return openAiClient.generateContent(systemPrompt, prompt);
+        return processInternal(context + " | " + prompt, true, true);
     }
 
     public String processEvent(String event) {
-        String prompt = "Absorb this event and output your internal conscious stream of thoughts about it: " + event;
-        String thoughts = think("Processing a new event.", prompt);
-        if (thoughts == null) thoughts = "I processed the event but my thoughts are clouded.";
+        return processInternal(event, false, false);
+    }
+    
+    private String processInternal(String rawInput, boolean forceHeavy, boolean forceLlm) {
+        // 1. Perception
+        PerceptionFrame frame = new PerceptionFrame(rawInput, "external");
         
-        java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
-        String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
-        String stampedEvent = "[" + timeStr + "] " + thoughts;
+        // 2. Metacognition & Salience
+        router.evaluate(frame, salienceEngine, state.body, state.selfModel);
         
-        this.shortTermMemory = stampedEvent + "\n\n" + this.shortTermMemory;
-        if (this.shortTermMemory.length() > 5000) {
-            this.shortTermMemory = this.shortTermMemory.substring(0, 5000);
+        // 3. Update memory & goals
+        state.memory.addWorkingMemory(new WorkingMemoryItem("event_" + System.currentTimeMillis(), rawInput, router.uncertainty, 5));
+        state.goalEngine.evaluateGoals(state.body);
+        
+        // 4. Processing Path Arbitrator (Action Selection)
+        AgentAction action;
+        if (!router.llmNeeded && !forceHeavy && !forceLlm) {
+            // Habitual / Reflex Response
+            action = new AgentAction("habit", "I acknowledge the event.");
+        } else {
+            // Deliberative Reasoning Engine
+            boolean previousMoe = gateway.useLowModelOnly;
+            if (forceHeavy) gateway.useLowModelOnly = false;
+            
+            // Gateway mutates the state directly based on LLM output delta
+            action = gateway.reason(state, frame, router);
+            
+            gateway.useLowModelOnly = previousMoe; // Restore
         }
         
+        // 5. Autonomic Decay & Consolidation Tick
+        state.body.decay(1);
+        state.memory.tick();
+        
+        // 6. Legacy Sync (Update Strings for DB)
+        this.shortTermMemory = action.content + "\n" + this.shortTermMemory;
+        if (this.shortTermMemory.length() > 2000) this.shortTermMemory = this.shortTermMemory.substring(0, 2000);
+        
         extractCoreMemories();
-        return thoughts;
+        return action.content;
     }
 
     private void extractCoreMemories() {
-        String prompt = "Review this STM:\n" + shortTermMemory + "\n\nIs there a highly significant event (very good, bad, scary, novel, important)? If YES, output exactly ONE sentence summarizing it to permanent memory starting with exactly one tag: [POSITIVE], [NEGATIVE], or [NEUTRAL]. If NO, output 'NONE'.";
-        String ltmExtracted = geminiAiClient.generateContentLight(prompt);
-        if (ltmExtracted == null || ltmExtracted.contains("[GEMINI_ERROR]")) ltmExtracted = openAiClient.generateContent("You are a memory extractor.", prompt);
-        
-        if (ltmExtracted != null && !ltmExtracted.contains("NONE") && ltmExtracted.length() > 5 && !ltmExtracted.contains("[CLAUDE_ERROR]") && !ltmExtracted.contains("[GEMINI_ERROR]")) {
-            String color = "#c8c8c8"; // neutral
-            if (ltmExtracted.startsWith("[POSITIVE]")) {
-                color = "#4caf50"; // green
-                ltmExtracted = ltmExtracted.replace("[POSITIVE]", "").trim();
-            } else if (ltmExtracted.startsWith("[NEGATIVE]")) {
-                color = "#f44336"; // red
-                ltmExtracted = ltmExtracted.replace("[NEGATIVE]", "").trim();
-            } else if (ltmExtracted.startsWith("[NEUTRAL]")) {
-                ltmExtracted = ltmExtracted.replace("[NEUTRAL]", "").trim();
-            }
-
+        if (shortTermMemory.length() > 500 && Math.random() > 0.8) {
             java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
             String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
-
-            this.longTermMemory = "<span style='color:" + color + "'>[CORE MEMORY: " + timeStr + "] " + ltmExtracted.trim() + "</span><br>\n" + this.longTermMemory;
-            this.shortTermMemory = "Mind is clear."; // Flush STM to make room
-            
-            // Amend personality and relations based on this core memory
-            this.personality = personalityEngine.amendPersonality(this.personality, ltmExtracted);
-            this.relations = relationsEngine.amendRelations(this.relations, ltmExtracted);
+            this.longTermMemory = "<span style='color:#c8c8c8'>[CORE MEMORY: " + timeStr + "] " + this.shortTermMemory.substring(0, Math.min(100, this.shortTermMemory.length())) + "</span><br>\n" + this.longTermMemory;
+            this.shortTermMemory = "Mind clear.";
         }
-    }
-
-    public String getLongTermMemory() {
-        return longTermMemory;
-    }
-
-    public String getShortTermMemory() {
-        return shortTermMemory;
     }
 
     public void logEvent(String event) {
         if (this.eventLogs == null) this.eventLogs = "";
         java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
         String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a"));
-        // Color code event logs
-        String color = "#b3e5fc"; // Light blue for generic events
+        String color = "#b3e5fc";
         if (event.contains("REJECTED") || event.contains("failed") || event.contains("ERROR")) color = "#f44336";
         this.eventLogs = "<span style='color:" + color + "'>[" + timeStr + "] " + event + "</span><br>\n" + this.eventLogs;
     }
 
-    public String getPersonality() {
-        return personality;
-    }
-
-    public String getRelations() {
-        return relations;
-    }
-
-    public String getEventLogs() {
-        return eventLogs;
-    }
+    public String getLongTermMemory() { return longTermMemory; }
+    public String getShortTermMemory() { return shortTermMemory; }
+    public String getPersonality() { return rawPersonality; }
+    public String getRelations() { return rawRelations; }
+    public String getEventLogs() { return eventLogs; }
+    public AgentState getState() { return state; }
 }
