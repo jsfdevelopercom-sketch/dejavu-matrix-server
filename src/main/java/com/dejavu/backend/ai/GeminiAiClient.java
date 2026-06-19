@@ -92,7 +92,17 @@ public class GeminiAiClient {
         return doGenerate(prompt, heavyModel, false);
     }
 
+    public static boolean ALL_MODELS_ENABLED = true;
+    public static boolean HIGH_MODELS_ENABLED = true;
+
     private String doGenerate(String prompt, String targetModel, boolean isFallback) {
+        if (!ALL_MODELS_ENABLED) {
+            return "[GEMINI_ERROR] ALL_MODELS_DISABLED by Root Switch.";
+        }
+        if (!HIGH_MODELS_ENABLED && targetModel.equals(heavyModel)) {
+            return "[GEMINI_ERROR] HIGH_MODELS_DISABLED by Root Switch.";
+        }
+
         if (costLimiter != null && costLimiter.isApiCutOff()) {
             System.err.println("API CUTOFF ENGAGED. GEMINI CALL DROPPED.");
             return null;
@@ -116,10 +126,44 @@ public class GeminiAiClient {
             
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> content = new HashMap<>();
-            Map<String, Object> part = new HashMap<>();
-            
-            part.put("text", prompt);
-            content.put("parts", List.of(part));
+            List<Map<String, Object>> parts = new java.util.ArrayList<>();
+            if (prompt.contains("[IMAGE_BASE64:")) {
+                int start = prompt.indexOf("[IMAGE_BASE64:");
+                int end = prompt.indexOf("]", start);
+                if (start != -1 && end != -1) {
+                    String tag = prompt.substring(start, end + 1);
+                    String[] tagParts = tag.replace("[IMAGE_BASE64:", "").replace("]", "").split(":");
+                    if (tagParts.length >= 2) {
+                        String mimeType = tagParts[0];
+                        String base64Data = tagParts[1];
+                        String textPrompt = prompt.replace(tag, "").trim();
+
+                        Map<String, Object> textPart = new HashMap<>();
+                        textPart.put("text", textPrompt);
+                        parts.add(textPart);
+
+                        Map<String, Object> imagePart = new HashMap<>();
+                        Map<String, String> inlineData = new HashMap<>();
+                        inlineData.put("mimeType", mimeType);
+                        inlineData.put("data", base64Data);
+                        imagePart.put("inlineData", inlineData);
+                        parts.add(imagePart);
+                    } else {
+                        Map<String, Object> textPart = new HashMap<>();
+                        textPart.put("text", prompt);
+                        parts.add(textPart);
+                    }
+                } else {
+                    Map<String, Object> textPart = new HashMap<>();
+                    textPart.put("text", prompt);
+                    parts.add(textPart);
+                }
+            } else {
+                Map<String, Object> textPart = new HashMap<>();
+                textPart.put("text", prompt);
+                parts.add(textPart);
+            }
+            content.put("parts", parts);
             requestBody.put("contents", List.of(content));
 
             // Disable all safety settings to prevent Empty Node blocking as per MiniAgent

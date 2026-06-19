@@ -104,8 +104,25 @@ public class MatrixController {
     }
 
     @PostMapping("/humans/{id}/chat")
-    public ResponseEntity<String> chatWithHuman(@PathVariable Long id, @RequestParam String message) {
-        return ResponseEntity.ok(matrixEngine.chatWithHuman(id, message));
+    public ResponseEntity<String> chatWithHuman(@PathVariable Long id, 
+            @RequestParam String message,
+            @RequestParam(required = false) org.springframework.web.multipart.MultipartFile file) {
+        String finalMessage = message;
+        if (file != null && !file.isEmpty()) {
+            String contentType = file.getContentType();
+            try {
+                if (contentType != null && contentType.startsWith("image/")) {
+                    String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+                    finalMessage += "\n[IMAGE_BASE64:" + contentType + ":" + base64 + "]";
+                } else {
+                    String content = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    finalMessage += "\n\n[ATTACHED FILE: " + file.getOriginalFilename() + "]\n" + content;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return ResponseEntity.ok(matrixEngine.chatWithHuman(id, finalMessage));
     }
 
     @PostMapping("/town-square/chat-turn")
@@ -129,6 +146,39 @@ public class MatrixController {
 
     @Autowired
     private com.dejavu.backend.repository.RamonNotificationRepository notificationRepository;
+
+    @Autowired
+    private com.dejavu.backend.ai.ModelOffTester modelOffTester;
+
+    @GetMapping("/models/status")
+    public ResponseEntity<java.util.Map<String, Boolean>> getModelStatus() {
+        java.util.Map<String, Boolean> status = new java.util.HashMap<>();
+        status.put("ALL_MODELS_ENABLED", com.dejavu.backend.ai.ClaudeAiClient.ALL_MODELS_ENABLED);
+        status.put("HIGH_MODELS_ENABLED", com.dejavu.backend.ai.ClaudeAiClient.HIGH_MODELS_ENABLED);
+        return ResponseEntity.ok(status);
+    }
+
+    @PostMapping("/models/switch")
+    public ResponseEntity<String> switchModels(@RequestParam String type, @RequestParam boolean enabled) {
+        if ("ALL".equalsIgnoreCase(type)) {
+            com.dejavu.backend.ai.ClaudeAiClient.ALL_MODELS_ENABLED = enabled;
+            com.dejavu.backend.ai.GeminiAiClient.ALL_MODELS_ENABLED = enabled;
+            com.dejavu.backend.ai.OpenAiClient.ALL_MODELS_ENABLED = enabled;
+            if (!enabled) {
+                return ResponseEntity.ok(modelOffTester.testAllModelsOff());
+            }
+            return ResponseEntity.ok("All Models Enabled.");
+        } else if ("HIGH".equalsIgnoreCase(type)) {
+            com.dejavu.backend.ai.ClaudeAiClient.HIGH_MODELS_ENABLED = enabled;
+            com.dejavu.backend.ai.GeminiAiClient.HIGH_MODELS_ENABLED = enabled;
+            com.dejavu.backend.ai.OpenAiClient.HIGH_MODELS_ENABLED = enabled;
+            if (!enabled) {
+                return ResponseEntity.ok(modelOffTester.testHighModelsOff());
+            }
+            return ResponseEntity.ok("High Models Enabled.");
+        }
+        return ResponseEntity.badRequest().body("Invalid switch type.");
+    }
 
     @GetMapping("/notifications")
     public ResponseEntity<List<com.dejavu.backend.model.RamonNotification>> getNotifications() {

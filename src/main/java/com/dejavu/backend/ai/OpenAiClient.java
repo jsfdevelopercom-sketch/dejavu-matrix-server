@@ -66,7 +66,18 @@ public class OpenAiClient {
         return generateContent(systemPrompt, userPrompt, gptModel);
     }
 
+    public static boolean ALL_MODELS_ENABLED = true;
+    public static boolean HIGH_MODELS_ENABLED = true;
+
     public String generateContent(String systemPrompt, String userPrompt, String overrideModel) {
+        if (!ALL_MODELS_ENABLED) {
+            return "[OPENAI_ERROR] ALL_MODELS_DISABLED by Root Switch.";
+        }
+        // Assuming OpenAI is always considered a HIGH model in this context since it's used for heavy lifting
+        if (!HIGH_MODELS_ENABLED) {
+            return "[OPENAI_ERROR] HIGH_MODELS_DISABLED by Root Switch.";
+        }
+
         if (costLimiter != null && costLimiter.isApiCutOff()) {
             System.err.println("API CUTOFF ENGAGED. OPENAI CALL DROPPED.");
             return null;

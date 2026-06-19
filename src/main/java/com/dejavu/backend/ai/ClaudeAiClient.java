@@ -97,7 +97,17 @@ public class ClaudeAiClient {
         return doGenerate(prompt, heavyModel, false);
     }
 
+    public static boolean ALL_MODELS_ENABLED = true;
+    public static boolean HIGH_MODELS_ENABLED = true;
+
     private String doGenerate(String prompt, String targetModel, boolean isFallback) {
+        if (!ALL_MODELS_ENABLED) {
+            return "[CLAUDE_ERROR] ALL_MODELS_DISABLED by Root Switch.";
+        }
+        if (!HIGH_MODELS_ENABLED && targetModel.equals(heavyModel)) {
+            return "[CLAUDE_ERROR] HIGH_MODELS_DISABLED by Root Switch.";
+        }
+
         if (costLimiter != null && costLimiter.isApiCutOff()) {
             System.err.println("API CUTOFF ENGAGED. CLAUDE CALL DROPPED.");
             return null;
@@ -137,7 +147,43 @@ public class ClaudeAiClient {
 
             Map<String, Object> message = new HashMap<>();
             message.put("role", "user");
-            message.put("content", prompt);
+            if (prompt.contains("[IMAGE_BASE64:")) {
+                int start = prompt.indexOf("[IMAGE_BASE64:");
+                int end = prompt.indexOf("]", start);
+                if (start != -1 && end != -1) {
+                    String tag = prompt.substring(start, end + 1);
+                    String[] parts = tag.replace("[IMAGE_BASE64:", "").replace("]", "").split(":");
+                    if (parts.length >= 2) {
+                        String mimeType = parts[0];
+                        String base64Data = parts[1];
+                        String textPrompt = prompt.replace(tag, "").trim();
+
+                        List<Map<String, Object>> contentList = new ArrayList<>();
+                        
+                        Map<String, Object> textPart = new HashMap<>();
+                        textPart.put("type", "text");
+                        textPart.put("text", textPrompt);
+                        contentList.add(textPart);
+
+                        Map<String, Object> imagePart = new HashMap<>();
+                        imagePart.put("type", "image");
+                        Map<String, Object> source = new HashMap<>();
+                        source.put("type", "base64");
+                        source.put("media_type", mimeType);
+                        source.put("data", base64Data);
+                        imagePart.put("source", source);
+                        contentList.add(imagePart);
+
+                        message.put("content", contentList);
+                    } else {
+                        message.put("content", prompt);
+                    }
+                } else {
+                    message.put("content", prompt);
+                }
+            } else {
+                message.put("content", prompt);
+            }
             requestBody.put("messages", List.of(message));
 
             HttpHeaders headers = new HttpHeaders();
