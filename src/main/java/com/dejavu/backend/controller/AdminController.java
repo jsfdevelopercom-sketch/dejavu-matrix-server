@@ -370,7 +370,7 @@ public class AdminController {
     @PostMapping("/confessions/{id}/archangel")
     public ResponseEntity<Map<String, String>> triggerArchangel(@PathVariable Long id) {
         return confessionRepository.findById(id).map(confession -> {
-            archangelEngine.interviewAndExpand(confession, globalMaxQuestions);
+            archangelEngine.generateGameContent(confession);
             Map<String, String> result = new HashMap<>();
             result.put("message", "Archangel successfully judged the confession.");
             return ResponseEntity.ok(result);
@@ -384,7 +384,7 @@ public class AdminController {
             for (Confession c : confessions) {
                 if (c.getExtendedStory() == null || c.getExtendedStory().equals(c.getText())) {
                     try {
-                        archangelEngine.interviewAndExpand(c, globalMaxQuestions);
+                        archangelEngine.generateGameContent(c);
                         Thread.sleep(50000); // Wait 50 seconds between processing. Each confession uses 12 AI requests. Free tier limit is 15 requests per minute.
                     } catch (Exception e) {
                         System.err.println("Failed to process confession " + c.getId() + ": " + e.getMessage());

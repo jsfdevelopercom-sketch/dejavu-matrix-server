@@ -16,10 +16,7 @@ public class ScheduledTasks {
     @Autowired
     private JuicyConfessionEngine juicyConfessionEngine;
 
-    @Autowired
-    private com.dejavu.backend.ai.MatrixEngine matrixEngine;
-
-    private boolean autoEnabled = true;
+    private boolean autoEnabled = false;
 
     public boolean isAutoEnabled() { return autoEnabled; }
     public void setAutoEnabled(boolean autoEnabled) { this.autoEnabled = autoEnabled; }
@@ -63,17 +60,5 @@ public class ScheduledTasks {
         }
         
         logger.info("Completed daily task. Successfully created " + totalCreated + " confessions across 10 themes.");
-    }
-
-    @Scheduled(cron = "0 0 3 * * ?")
-    public void runMatrixSimulation() {
-        if (!autoEnabled) {
-            logger.info("Matrix simulation skipped because auto is DISABLED.");
-            return;
-        }
-        logger.info("Starting Daily Matrix Simulation. Awakening all humans...");
-        // This will simulate 10 minutes of intense routine = 1 day
-        matrixEngine.awakenMatrix();
-        logger.info("Matrix Simulation Complete.");
     }
 }

@@ -67,6 +67,6 @@ public class GameController {
     @PostMapping("/confession/chat/filler")
     public ResponseEntity<String> chatFiller(
             @RequestBody com.dejavu.backend.ai.DarkArchangelInterviewEngine.ChatRequest request) {
-        return ResponseEntity.ok(interviewEngine.generateFiller(request));
+        return ResponseEntity.ok("The Archangel is weighing your pathetic words...");
     }
 }
