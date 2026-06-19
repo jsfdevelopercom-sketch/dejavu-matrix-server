@@ -120,9 +120,10 @@ public class GeminiAiClient {
             if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return "[GEMINI_ERROR] API key missing or AI disabled.";
         }
-
-        try {
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + targetModel + ":generateContent?key=" + apiKey;
+        int maxRetries = 4;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String url = "https://generativelanguage.googleapis.com/v1beta/models/" + targetModel + ":generateContent?key=" + apiKey;
             
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> content = new HashMap<>();
@@ -207,13 +208,23 @@ public class GeminiAiClient {
                 }
             }
             return "[GEMINI_ERROR] Response structure invalid or empty.";
-        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
-            System.err.println("Gemini API HTTP Error (" + targetModel + "): " + httpEx.getStatusCode() + " " + httpEx.getResponseBodyAsString());
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            if (e.getStatusCode().value() == 429) {
+                System.err.println("[GEMINI RATE LIMIT] HTTP 429 hit for " + targetModel + ". Attempt " + attempt + " of " + maxRetries + " failed. Waiting 20s...");
+                if (attempt < maxRetries) {
+                    try { Thread.sleep(20000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    continue; // Retry
+                } else {
+                    System.err.println("Gemini max retries reached for 429. Falling back...");
+                }
+            } else {
+                System.err.println("Gemini API HTTP Error (" + targetModel + "): " + e.getStatusCode() + " " + e.getResponseBodyAsString());
+            }
             if (!isFallback && claudeAiClient != null) {
                  return targetModel.equals(lightModel) ? claudeAiClient.generateContentLight(prompt, true) : claudeAiClient.generateContentHeavy(prompt, true);
             }
             if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
-            return "[GEMINI_ERROR] HTTP Error: " + httpEx.getStatusCode();
+            return "[GEMINI_ERROR] HTTP Error: " + e.getStatusCode();
         } catch (Exception e) {
             System.err.println("Gemini API call failed (" + targetModel + "): " + e.getMessage() + ". Falling back...");
             if (!isFallback && claudeAiClient != null) {
@@ -222,5 +233,7 @@ public class GeminiAiClient {
             if (!isFallback && openAiClient != null && !gptDisabled) return openAiClient.generateContent(prompt);
             return "[GEMINI_ERROR] API call failed (" + targetModel + "): " + e.getMessage();
         }
+        } // End of retry loop
+        return "[GEMINI_ERROR] API call failed after retries.";
     }
 }
