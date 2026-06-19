@@ -38,3 +38,13 @@ This Week            | $0.0000
 This Month           | $0.0000
 Total Till Date      | $0.0000
 
+[2026-06-19T20:33:45.950972449] [SYNC] Periodic DB Cost Sync:
+Metric               | Cost (USD)
+---------------------|-----------
+Last Hour            | $0.0000
+This Run             | $0.0000
+Today                | $0.0000
+This Week            | $0.0000
+This Month           | $0.0000
+Total Till Date      | $0.0000
+

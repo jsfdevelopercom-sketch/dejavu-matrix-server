@@ -441,33 +441,47 @@ public class AdminController {
     }
 
     @PostMapping("/confessions/force-archangel-all")
-    public ResponseEntity<String> forceArchangelAll() {
-        archangelStatus = "Starting FORCE RE-PROCESS...";
+    public ResponseEntity<?> forceArchangelAll() {
         new Thread(() -> {
-            List<Confession> confessions = confessionRepository.findAll();
-            int total = confessions.size();
-            int i = 1;
-            for (Confession c : confessions) {
-                try {
-                    archangelStatus = "FORCE Processing " + i + "/" + total + " [ID: " + c.getId() + "]...";
-                    com.dejavu.backend.model.game.ConfessionGameContent gc = gameContentRepository.findFirstByConfessionId(c.getId());
-                    if (gc != null) {
-                        gameContentRepository.delete(gc);
-                    }
+            try {
+                // Erase all existing game content to force full regeneration
+                gameContentRepository.deleteAll();
+                
+                List<Confession> confessions = confessionRepository.findAll();
+                System.out.println("[ADMIN] Forcing Archangel Judgment on " + confessions.size() + " confessions.");
+                for (Confession c : confessions) {
                     c.setExtendedStory(null);
                     confessionRepository.save(c);
-
                     archangelEngine.generateGameContent(c);
-                    Thread.sleep(50000); // Wait 50 seconds to respect rate limits
-                } catch (Exception e) {
-                    System.err.println("Failed to force process confession " + c.getId() + ": " + e.getMessage());
-                    archangelStatus = "Error on " + c.getId() + ": " + e.getMessage();
+                    Thread.sleep(1000); // 1s sleep since it's much faster now
                 }
-                i++;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            archangelStatus = "Idle (Completed " + (i-1) + " Forced)";
         }).start();
-        return ResponseEntity.ok("Started FORCED background processing of ALL confessions.");
+        return ResponseEntity.ok("Mass Archangel Judgment Overridden and Started.");
+    }
+
+    @GetMapping("/test-archangel-speed")
+    public ResponseEntity<?> testArchangelSpeed() {
+        Confession testConfession = new Confession();
+        testConfession.setText("I let my friend take the fall for a prank that got him suspended from school. I've felt guilty for 10 years, but never told him.");
+        
+        long start = System.currentTimeMillis();
+        com.dejavu.backend.model.game.ConfessionGameContent result = archangelEngine.generateGameContent(testConfession);
+        long end = System.currentTimeMillis();
+        
+        long durationMs = end - start;
+        
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("time_ms", durationMs);
+        response.put("success", result != null);
+        if (result != null) {
+            response.put("title", result.getTitle());
+            response.put("fragments", result.getFragments() != null ? result.getFragments().size() : 0);
+        }
+        
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/confessions/wipe-stories")

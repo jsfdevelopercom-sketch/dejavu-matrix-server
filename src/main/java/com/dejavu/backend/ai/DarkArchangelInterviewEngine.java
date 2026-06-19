@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class DarkArchangelInterviewEngine {
 
     @Autowired
-    private GeminiAiClient aiClient;
+    private OpenAiClient aiClient;
 
     @Autowired
     private ConfessionRepository confessionRepository;
