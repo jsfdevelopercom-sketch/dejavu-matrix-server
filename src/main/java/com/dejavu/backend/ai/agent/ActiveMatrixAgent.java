@@ -5,6 +5,8 @@ import com.dejavu.backend.ai.GeminiAiClient;
 import com.dejavu.backend.model.MatrixHuman;
 import com.dejavu.backend.ai.MemoryCondenser;
 import com.dejavu.backend.ai.AiOutputJudge;
+import com.dejavu.backend.ai.PersonalityEngine;
+import com.dejavu.backend.ai.RelationsEngine;
 
 public class ActiveMatrixAgent {
 
@@ -12,14 +14,14 @@ public class ActiveMatrixAgent {
     private final AgentMind mind;
     private final OpenAiClient openAiClient;
 
-    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge) {
+    public ActiveMatrixAgent(MatrixHuman entity, OpenAiClient openAiClient, GeminiAiClient geminiAiClient, MemoryCondenser memoryCondenser, AiOutputJudge outputJudge, PersonalityEngine personalityEngine, RelationsEngine relationsEngine) {
         this.entity = entity;
         this.openAiClient = openAiClient;
-        this.mind = new AgentMind(openAiClient, geminiAiClient, memoryCondenser, outputJudge, entity.getPersonality(), entity.getMemory(), entity.getWorkingMemory());
+        this.mind = new AgentMind(openAiClient, geminiAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine, entity.getPersonality(), entity.getRelations(), entity.getMemory(), entity.getWorkingMemory(), entity.getEventLogs());
     }
 
     public String speak(String targetName, String context) {
-        String prompt = "You are speaking to " + targetName + ". Context: " + context + "\nRespond naturally as yourself.";
+        String prompt = "You are speaking to " + targetName + ". Context: " + context + "\nRespond naturally as yourself. Emulate text messaging style and optionally include emojis/emoticons to express your feelings towards the user.";
         return mind.think("Social Interaction", prompt);
     }
 
@@ -81,11 +83,7 @@ public class ActiveMatrixAgent {
     }
 
     public void logEvent(String event) {
-        String logs = entity.getEventLogs();
-        if (logs == null) logs = "";
-        java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
-        String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a 'NCR Time'"));
-        entity.setEventLogs("[" + timeStr + "] " + event + "\n\n" + logs);
+        mind.logEvent(event);
     }
 
     public String getName() {
@@ -99,6 +97,9 @@ public class ActiveMatrixAgent {
     public MatrixHuman syncToDatabaseEntity() {
         entity.setMemory(mind.getLongTermMemory());
         entity.setWorkingMemory(mind.getShortTermMemory());
+        entity.setPersonality(mind.getPersonality());
+        entity.setRelations(mind.getRelations());
+        entity.setEventLogs(mind.getEventLogs());
         return entity;
     }
 }

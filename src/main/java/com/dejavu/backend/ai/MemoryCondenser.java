@@ -18,8 +18,9 @@ public class MemoryCondenser {
 
         String instruction = "Convert the following raw memory dump into an under 200 word summary. " +
                 "You MUST NOT waste words on language grammar. Be like bullet pointed very high density short phrases. " +
+                "You MUST start your response with EXACTLY one of these tags judging your overall feeling about these memories: [POSITIVE], [NEGATIVE], or [NEUTRAL]. " +
                 "EXAMPLE BAD: on the night of 19th when the mood was tense i was angry and thought i would go and call ramon and yell at him " +
-                "EXAMPLE GOOD: 19th night mood:tense, anger; action- thought to call ramon to yell. " +
+                "EXAMPLE GOOD: [NEGATIVE] 19th night mood:tense, anger; action- thought to call ramon to yell. " +
                 "\n\nRaw Dump:\n" + rawDump;
 
         // Use ONLY low model

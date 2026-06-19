@@ -60,6 +60,9 @@ public class ClaudeAiClient {
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
             this.apiKey = System.getenv("ANTHROPIC_API_KEY");
         }
+        if (this.apiKey != null) {
+            this.apiKey = this.apiKey.replace("\"", "").replace("'", "").trim();
+        }
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
         factory.setReadTimeout(180000);

@@ -54,10 +54,13 @@ public class GeminiAiClient {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public GeminiAiClient(@Value("${GEMINI_API_KEY:}") String injectedKey) {
+    public GeminiAiClient(@Value("${gemini.api.key:}") String injectedKey) {
         this.apiKey = injectedKey;
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
             this.apiKey = System.getenv("GEMINI_API_KEY");
+        }
+        if (this.apiKey != null) {
+            this.apiKey = this.apiKey.replace("\"", "").replace("'", "").trim();
         }
         if (this.apiKey == null || this.apiKey.trim().isEmpty()) {
             this.apiKey = System.getenv("GEMINI_KEY");
@@ -118,6 +121,14 @@ public class GeminiAiClient {
             part.put("text", prompt);
             content.put("parts", List.of(part));
             requestBody.put("contents", List.of(content));
+
+            // Disable all safety settings to prevent Empty Node blocking as per MiniAgent
+            List<Map<String, String>> safetySettings = new java.util.ArrayList<>();
+            safetySettings.add(Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"));
+            safetySettings.add(Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"));
+            safetySettings.add(Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"));
+            safetySettings.add(Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE"));
+            requestBody.put("safetySettings", safetySettings);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

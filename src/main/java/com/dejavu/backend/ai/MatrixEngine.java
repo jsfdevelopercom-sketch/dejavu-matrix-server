@@ -38,6 +38,12 @@ public class MatrixEngine {
     private AiOutputJudge outputJudge;
 
     @Autowired
+    private PersonalityEngine personalityEngine;
+
+    @Autowired
+    private RelationsEngine relationsEngine;
+
+    @Autowired
     private MatrixHumanRepository humanRepository;
     
     @Autowired
@@ -211,7 +217,7 @@ public class MatrixEngine {
     }
 
     public ActiveMatrixAgent getAgent(MatrixHuman human) {
-        return new com.dejavu.backend.ai.agent.ActiveMatrixAgent(human, openAiClient, geminiAiClient, memoryCondenser, outputJudge);
+        return new com.dejavu.backend.ai.agent.ActiveMatrixAgent(human, openAiClient, geminiAiClient, memoryCondenser, outputJudge, personalityEngine, relationsEngine);
     }
 
     private void simulateDay(MatrixHuman human) {

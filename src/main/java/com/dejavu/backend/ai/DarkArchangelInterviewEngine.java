@@ -1,18 +1,16 @@
 package com.dejavu.backend.ai;
 
 import com.dejavu.backend.model.Confession;
+import com.dejavu.backend.model.game.ConfessionFragment;
+import com.dejavu.backend.model.game.ConfessionGameContent;
+import com.dejavu.backend.model.game.JudgmentQuestion;
 import com.dejavu.backend.repository.ConfessionRepository;
+import com.dejavu.backend.repository.game.ConfessionGameContentRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-/**
- * DarkArchangelInterviewEngine is the primary conversational processor for confessions.
- * It features two distinct pathways:
- * 1. An automated multi-agent simulation for offline/background confession expansion (`interviewAndExpand`).
- * 2. An interactive, live API endpoint for real-time mobile app users (`interactiveChat`).
- * 
- * Rules and Focals are dynamically fetched from the database, allowing live Admin tuning.
- */
 @Component
 public class DarkArchangelInterviewEngine {
 
@@ -22,78 +20,146 @@ public class DarkArchangelInterviewEngine {
     @Autowired
     private ConfessionRepository confessionRepository;
 
-    /**
-     * Converts a basic confession into a rich, dense short story by running an autonomous
-     * multi-agent simulation between the Dark Archangel and an AI-generated Mortal Persona.
-     * 
-     * Pipeline:
-     * 1. Creates a specific mortal persona from the confession text.
-     * 2. Runs an adversarial back-and-forth for `maxQuestions` rounds.
-     * 3. Synthesizes the raw transcript into a highly factual, "no-fluff" extended story,
-     *    which is critical for the downstream physical clue generator.
-     * 
-     * @param confession The initial unexpanded Confession.
-     * @param maxQuestions The max depth of the interrogation.
-     * @return The updated Confession with the generated extended story.
-     */
-    public Confession interviewAndExpand(Confession confession, int maxQuestions) {
+    @Autowired
+    private ConfessionGameContentRepository gameContentRepository;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    public void interviewAndExpand(Confession confession, int maxQuestions) {
         try {
-            // 1. Initialize Mortal Persona
-            String personaSystem = "You are a psychological profiler.";
-            String personaUser = "Read this confession: \"" + confession.getText() + "\"\n" +
-                    "Generate a realistic persona for this mortal. Include age, gender, occupation, and psychological state. Keep it under 50 words.";
-            String persona = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
-            if (persona == null) persona = "An anonymous, guilt-ridden mortal.";
+            String probeSystem = "You are a ruthless, analytical data-miner extracting a completely exhaustive history. Read the confession. Generate 10 precise, leading questions.";
+            String probeUser = "Confession: \"" + confession.getText() + "\"";
+            String questions = aiClient.generateContentLight(probeSystem + "\n" + probeUser);
 
-            StringBuilder transcript = new StringBuilder();
-            transcript.append("Original Confession: \"").append(confession.getText()).append("\"\n\n");
+            String personaSystem = "You are the confessor answering questions with DENSE, CONCRETE FACTS ONLY.";
+            String personaUser = "Confession: \"" + confession.getText() + "\"\nQuestions:\n" + questions;
+            String answers = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
 
-            // 2. Run the Interrogation Loop
-            for (int i = 1; i <= maxQuestions; i++) {
-                // Archangel's Turn
-                String archangelSystem = "You are the Dark Archangel, interrogating a mortal. Be brutally analytical. Keep it to 1-2 short sentences.";
-                String archangelUser = "Their Confession: \"" + confession.getText() + "\"\n" +
-                        "Transcript so far:\n" + transcript.toString() + "\n" +
-                        "TASK: Ask exactly ONE piercing question. " +
-                        (i == 1 ? "Since this is your first question, you MUST compulsorily ask for their demographics (age, gender, country, city) while probing their sin." : "");
-                
-                String archangelQ = aiClient.generateContentLight(archangelSystem + "\n" + archangelUser);
-                if (archangelQ == null) break;
-                transcript.append("ARCHANGEL: ").append(archangelQ.trim()).append("\n");
+            confession.setExtendedStory(answers);
+            confessionRepository.save(confession);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-                // Mortal's Turn
-                String mortalSystem = "You are roleplaying as a mortal being interrogated by a terrifying Archangel.\n" +
-                        "Your Persona: " + persona + "\n" +
-                        "CRITICAL RULE: When answering, you MUST invent hyper-specific, highly concrete facts (street names, exact times, specific objects, exact dollar amounts) to make your sin realistic. DO NOT use vague emotional fluff. Give hard, concrete details.\n" +
-                        "Do NOT break character. Keep it under 40 words.";
-                String mortalUser = "Transcript so far:\n" + transcript.toString() + "\n" +
-                        "TASK: Answer the Archangel's latest question in character. Reveal your demographics if asked, or refuse. " +
-                        "Show emotion (guilt, defiance, fear).";
-                
-                String mortalA = aiClient.generateContentLight(mortalSystem + "\n" + mortalUser);
-                if (mortalA == null) break;
-                transcript.append("MORTAL: ").append(mortalA.trim()).append("\n\n");
-            }
+    public ConfessionGameContent generateGameContent(Confession confession) {
+        try {
+            // 1. Initial Probe - Ask leading questions to build the history
+            String probeSystem = "You are a ruthless, analytical data-miner extracting a completely exhaustive history. " +
+                    "Read the confession. Generate 15 precise, leading questions to extract dense, concrete data covering the PAST (background, motives, prior events), " +
+                    "the PRESENT (the exact timeline, physical actions, locations, tools used during the event), " +
+                    "and the FUTURE (quantifiable consequences, cover-ups, fallout). Do NOT ask about feelings or narrative. Only hard, factual data.";
+            String probeUser = "Confession: \"" + confession.getText() + "\"";
+            String questions = aiClient.generateContentLight(probeSystem + "\n" + probeUser);
 
-            // 3. Synthesize Final Story
-            String synthesisSystem = "You are an omniscient observer recording a confession. Synthesize the transcript into a dark, clinical, and precise account of the sin. DO NOT USE ADJECTIVES, METAPHORS, OR POETIC WORDS. Focus purely on the 'What', 'When', 'Why', and 'Who'. Use simple, direct language. CRITICAL RULE: NEVER mention the confessor's name, their relatives' names, or any exact geographical names/places (e.g. use 'a city park' instead of 'Clayton Park', use 'a male adolescent' instead of 'Aarav'). Replace ALL specific identities with anonymous descriptors.";
-            String synthesisUser = "Review this completed interrogation transcript:\n" +
-                    transcript.toString() + "\n" +
-                    "TASK: Write a concrete, factual story summary based on the details revealed. \n" +
-                    "End with a newline: 'Persona: [Age Group], [Gender], [Occupation/Status]'. CRITICAL: OMIT ALL specific names, exact ages, and exact places/locations.";
+            // 2. Generate persona and answer the questions
+            String personaSystem = "You are the confessor answering questions with DENSE, CONCRETE FACTS ONLY. " +
+                    "Zero storytelling, zero fluff, zero emotion. Provide highly specific demographics, dates, times, amounts, and exact actions. " +
+                    "Use bullet points or short factual sentences.";
+            String personaUser = "Confession: \"" + confession.getText() + "\"\nQuestions:\n" + questions;
+            String answers = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
+
+            // 3. Generate structured JSON game content
+            String jsonSystem = "You are the ArchangelEngine Data Compiler for the 'Confession Card Battle' game. " +
+                    "Read the raw data and output a strict JSON structure containing the game content. " +
+                    "CRITICAL REQUIREMENT: Use the content to create the story in SIMPLE language. Output DENSE, factual content. No word inflation. No flowery or complex vocabulary. Keep sentences straightforward and direct. " +
+                    "RULES:\n" +
+                    "- title: 2-4 word factual title.\n" +
+                    "- demographics: A JSON object containing strictly extracted or heavily inferred { age, occupation, gender, maritalStatus, locationType }.\n" +
+                    "- fullRevealText: 40-80 words, strictly factual, timeline of events, no fluff.\n" +
+                    "- anonymizedSummary: 1 factual sentence.\n" +
+                    "- qualityScore: 0.0 to 5.0 (must be >= 3.0 to be playable).\n" +
+                    "- fragments: Array of exactly 6 to 10 fragments. Order them chronologically (Situation, Context, Action, Denial, Consequence, Hidden Motive).\n" +
+                    "  Each fragment must have:\n" +
+                    "    - emotionFamily (Choose from: Sorrow, Fear, Anger, Guilt, Love, Relief)\n" +
+                    "    - emotionShade (e.g. 'regret', 'panic')\n" +
+                    "    - intensity (1-9 integer)\n" +
+                    "    - fragmentText (6-15 words MAX. DENSE FACTS ONLY. Simple, basic language.)\n" +
+                    "    - shortFragmentText (2-4 words for card center)\n" +
+                    "    - judgments: Array of exactly 3 judgment questions (binary true/false) about the confessor based on this fragment and prior ones.\n" +
+                    "      Each judgment must have:\n" +
+                    "        - text (e.g., 'This person acts alone.')\n" +
+                    "        - correctAnswer (true or false)\n" +
+                    "        - difficulty ('EASY', 'MEDIUM', 'HARD')\n" +
+                    "        - explanationForBackendOnly (1 factual reason)\n" +
+                    "        - emotionalAxis (e.g., 'Responsibility', 'Desire')\n" +
+                    "OUTPUT ONLY VALID JSON.";
             
-            String finalStory = aiClient.generateContentLight(synthesisSystem + "\n" + synthesisUser);
-            if (finalStory != null && !finalStory.trim().isEmpty()) {
-                confession.setExtendedStory(finalStory.trim());
-                return confessionRepository.save(confession);
+            String jsonUser = "Confession: \"" + confession.getText() + "\"\nExpanded Details:\n" + answers;
+
+            // Use Heavy model for structured JSON
+            String rawJson = aiClient.generateContentHeavy(jsonSystem + "\n" + jsonUser);
+            
+            // Clean up JSON if wrapped in markdown
+            if (rawJson != null) {
+                if (rawJson.startsWith("```json")) {
+                    rawJson = rawJson.substring(7, rawJson.lastIndexOf("```")).trim();
+                } else if (rawJson.startsWith("```")) {
+                    rawJson = rawJson.substring(3, rawJson.lastIndexOf("```")).trim();
+                }
+
+                JsonNode root = mapper.readTree(rawJson);
+                
+                ConfessionGameContent content = new ConfessionGameContent();
+                content.setConfessionId(confession.getId());
+                content.setTitle(root.path("title").asText());
+                content.setDemographics(root.path("demographics").toString()); // Assuming there's a setDemographics method
+                content.setFullRevealText(root.path("fullRevealText").asText());
+                content.setAnonymizedSummary(root.path("anonymizedSummary").asText());
+                content.setQualityScore(root.path("qualityScore").asDouble());
+                content.setCreatedByModel("Gemini-Heavy-Game-Factory");
+                content.setStatus(content.getQualityScore() >= 3.0 ? "PLAYABLE" : "REJECTED");
+
+                JsonNode frags = root.path("fragments");
+                int order = 1;
+                for (JsonNode fNode : frags) {
+                    ConfessionFragment fragment = new ConfessionFragment();
+                    fragment.setGameContent(content);
+                    fragment.setFragmentOrder(order++);
+                    fragment.setEmotionFamily(fNode.path("emotionFamily").asText());
+                    fragment.setEmotionShade(fNode.path("emotionShade").asText());
+                    fragment.setIntensity(fNode.path("intensity").asInt());
+                    fragment.setFragmentText(fNode.path("fragmentText").asText());
+                    fragment.setShortFragmentText(fNode.path("shortFragmentText").asText());
+                    fragment.setFullFragmentText(fNode.path("fragmentText").asText()); // fallback
+                    
+                    JsonNode judgs = fNode.path("judgments");
+                    for (JsonNode jNode : judgs) {
+                        JudgmentQuestion jq = new JudgmentQuestion();
+                        jq.setFragment(fragment);
+                        jq.setText(jNode.path("text").asText());
+                        jq.setCorrectAnswer(jNode.path("correctAnswer").asBoolean());
+                        jq.setDifficulty(jNode.path("difficulty").asText());
+                        jq.setExplanationForBackendOnly(jNode.path("explanationForBackendOnly").asText());
+                        jq.setEmotionalAxis(jNode.path("emotionalAxis").asText());
+                        fragment.getJudgments().add(jq);
+                    }
+                    content.getFragments().add(fragment);
+                }
+
+                return gameContentRepository.save(content);
             }
         } catch (Exception e) {
-            System.err.println("Multi-Agent Interview failed: " + e.getMessage());
+            e.printStackTrace();
         }
+        return null;
+    }
+
+    // Keep interactiveChat for legacy Deja-Lord confession intake if needed, but simplified
+    public ChatResponse interactiveChat(ChatRequest request, int maxQuestions) {
+        ChatResponse response = new ChatResponse();
+        response.reply = "Your sin is recorded. The scales of judgment have tipped.";
+        response.isFinal = true;
         
-        // Fallback
-        confession.setExtendedStory(confession.getText());
-        return confessionRepository.save(confession);
+        Confession c = new Confession();
+        c.setText(request.history.get(0).text);
+        c.setExtendedStory(c.getText());
+        confessionRepository.save(c);
+        
+        // Asynchronously generate game content
+        new Thread(() -> generateGameContent(c)).start();
+        
+        return response;
     }
 
     public static class ChatRequest {
@@ -110,126 +176,5 @@ public class DarkArchangelInterviewEngine {
     public static class ChatResponse {
         public String reply;
         public boolean isFinal;
-    }
-
-    /**
-     * Generates a fast, dark, funny waiting text while the heavier AI model processes the real response.
-     * Used exclusively to improve UX latency on the frontend by immediately returning a filler string.
-     * 
-     * @param request The current state of the chat history.
-     * @return A snappy, condescending "thinking" phrase.
-     */
-    public String generateFiller(ChatRequest request) {
-        String lastUserText = request.history.get(request.history.size() - 1).text;
-        String systemPrompt = "You are the Dark Archangel. The mortal just said: '" + lastUserText + "'. " +
-                "You are currently thinking/weighing their soul. " +
-                "Generate exactly ONE short, dark, yet funny 'filler' sentence to show you are thinking. " +
-                "Do NOT use poetic words like 'shadows'. Be mocking and impatient. Example: 'Let me consult the ledger of your pathetic choices...'";
-        
-        String filler = aiClient.generateContentLight(systemPrompt + "\nTASK: Generate thinking filler.");
-        return filler != null ? filler.trim() : "The Archangel is weighing your pathetic words...";
-    }
-
-    @Autowired
-    private com.dejavu.backend.repository.PromptConfigRepository promptConfigRepository;
-
-    /**
-     * Fetches dynamic AI prompt configurations from the database (e.g., rules, focals).
-     * If the configuration isn't found, it defaults to the provided `defaultValue`.
-     * This enables live tweaking of the Archangel's personality without a server restart.
-     */
-    private String getPromptConfig(String key, String defaultValue) {
-        return promptConfigRepository.findById(key)
-            .map(com.dejavu.backend.model.PromptConfig::getPromptContent)
-            .orElse(defaultValue);
-    }
-
-    /**
-     * Handles a single turn of the interactive user confession interview from the mobile app.
-     * This endpoint parses the entire chat history and either:
-     * A) Asks the next probing question using the dynamic Dark Archangel rules.
-     * B) Terminates the interview (if `maxQuestions` is reached) and synthesizes the entire log
-     *    into a final `extendedStory` to save in the database.
-     * 
-     * @param request The chat history payload from the client.
-     * @param maxQuestions The maximum number of questions the Archangel is allowed to ask.
-     * @return ChatResponse containing the Archangel's reply and a flag indicating if it's the final turn.
-     */
-    public ChatResponse interactiveChat(ChatRequest request, int maxQuestions) {
-        int angelMessageCount = 0;
-        StringBuilder historyBuilder = new StringBuilder();
-        for (ChatRequest.Message m : request.history) {
-            historyBuilder.append(m.role.toUpperCase()).append(": ").append(m.text).append("\n");
-            if ("angel".equalsIgnoreCase(m.role)) angelMessageCount++;
-        }
-
-        ChatResponse response = new ChatResponse();
-
-        if (angelMessageCount >= maxQuestions) {
-            // Reached max questions, time to compile into a confession
-            String prompt = "You are a factual database archivist compiling a final confession record.\n" +
-                    "Review this interrogation transcript:\n" + historyBuilder.toString() + "\n" +
-                    "Write a highly dense, factual, and detailed 'extended story' paragraph. " +
-                    "NO poetic fluff, NO flowery words. DO NOT fluff up a short story. " +
-                    "Include the precise timeline of the incident, the emotional state, " +
-                    "and every single concrete detail probed during the interrogation. " +
-                    "CRITICAL RULE: NEVER mention the confessor's name, any relatives' names, or any exact geographical names/places (replace them with generic descriptions like 'a city park' or 'a male software engineer'). " +
-                    "After the story, append a new line with 'Persona: [Age Group], [Gender], [Occupation/Status]'. " +
-                    "OMIT the exact name and exact age, use an age group (e.g., 'Late 20s'). " +
-                    "This story will be used to generate physical clues, so every concrete detail matters. " +
-                    "Return ONLY the story paragraph and Persona line.";
-            String story = aiClient.generateContentLight(prompt);
-            
-            Confession c = new Confession();
-            c.setText(request.history.get(0).text); // the original first message
-            c.setExtendedStory(story != null ? story.trim() : c.getText());
-            c.setSpicy(true);
-            if (request.locationName != null) c.setLocationName(request.locationName);
-            if (request.placeType != null) c.setPlaceType(request.placeType);
-            confessionRepository.save(c);
-
-            response.reply = ("Hinglish".equalsIgnoreCase(request.language)) ? "Tumhara paap darj ho gaya hai." : "Your sin is recorded. The scales of judgment have tipped.";
-            response.isFinal = true;
-            return response;
-        } else {
-            // Ask the next question
-            String languageRule = "Hinglish".equalsIgnoreCase(request.language) 
-                ? "You MUST speak in Hinglish (Hindi + English typed in Latin alphabet)." 
-                : "You MUST use brilliant, godly, and powerful English words. Sound like a terrifying deity.";
-            
-            String customRules = getPromptConfig("dark_angel_rules", "Be brutally analytical. Ask piercing questions.");
-            String focals = getPromptConfig("dark_angel_focals", "1. Demographics (Age, Gender, City) 2. Deep Root Cause of the sin 3. Emotional State and Guilt Level");
-            
-            String systemPrompt = "You are the Dark Archangel, interrogating a mortal who is confessing a secret.\n" +
-                    "You are brilliant, godly, powerful, and terrifying.\n" +
-                    "Your focals to extract during this interrogation are:\n" + focals + "\n\n" +
-                    "Custom Rules:\n" + customRules + "\n\n" +
-                    "STRICT RULES: " + languageRule + "\n" +
-                    "Keep it strictly to 1 or 2 short sentences. Ask ONE profound, probing question.";
-            
-            String userPrompt = "Here is the dialogue so far:\n" + historyBuilder.toString() + "\n" +
-                    "TASK: Reply with your next question or godly observation.";
-            
-            String reply = aiClient.generateContentLight(systemPrompt + "\n" + userPrompt);
-            
-            // GUARDRAIL
-            if (reply != null) {
-                String guardrailSystem = "You are a guardrail model. You ensure safety and relevance.";
-                String guardrailUser = "Check this output from the Dark Archangel: '" + reply + "'\n" +
-                        "Does it use banned/highly offensive words or is it completely unrelated to the confession transcript below?\n" +
-                        "Transcript: " + historyBuilder.toString() + "\n" +
-                        "If it violates rules, reply with exactly 'FAIL'. Otherwise, reply 'PASS'.";
-                String guardResult = aiClient.generateContentLight(guardrailSystem + "\n" + guardrailUser);
-                
-                if (guardResult != null && guardResult.contains("FAIL")) {
-                    System.out.println("Guardrail caught bad output. Retrying exactly once.");
-                    reply = aiClient.generateContentLight(systemPrompt + "\n" + userPrompt); // retry once
-                }
-            }
-            
-            response.reply = reply != null ? reply.trim() : "Speak. I am waiting.";
-            response.isFinal = false;
-            return response;
-        }
     }
 }

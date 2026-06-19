@@ -153,13 +153,13 @@ public class JuicyConfessionEngine {
                             c.setSpicy(result.isSpicy);
                             if (!result.decision.contains("REJECT") && !result.decision.contains("NOT_PLAYABLE")) {
                                 Confession saved = confessionRepository.save(c);
-                                saved = interviewEngine.interviewAndExpand(saved, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
+                                interviewEngine.generateGameContent(saved);
                                 newConfessions.add(saved);
                             }
                         } else {
                             c.setSpicy(true);
                             Confession saved = confessionRepository.save(c);
-                            saved = interviewEngine.interviewAndExpand(saved, com.dejavu.backend.controller.AdminController.getGlobalMaxQuestions());
+                            interviewEngine.generateGameContent(saved);
                             newConfessions.add(saved);
                         }
                     }
