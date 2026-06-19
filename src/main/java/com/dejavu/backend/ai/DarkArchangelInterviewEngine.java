@@ -59,6 +59,10 @@ public class DarkArchangelInterviewEngine {
             String personaUser = "Confession: \"" + confession.getText() + "\"\nQuestions:\n" + questions;
             String answers = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
 
+            // IMPORTANT: Save the newly generated dense extended story back to the confession
+            confession.setExtendedStory(answers);
+            confessionRepository.save(confession);
+
             // 3. Generate structured JSON game content
             String jsonSystem = "You are the ArchangelEngine Data Compiler for the 'Confession Card Battle' game. " +
                     "Read the raw data and output a strict JSON structure containing the game content. " +
