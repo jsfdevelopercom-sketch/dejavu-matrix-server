@@ -200,9 +200,9 @@ public class GeminiAiClient {
                 Map<String, Object> candidate = candidates.get(0);
                 Map<String, Object> resContent = (Map<String, Object>) candidate.get("content");
                 if (resContent != null) {
-                    List<Map<String, Object>> parts = (List<Map<String, Object>>) resContent.get("parts");
-                    if (parts != null && !parts.isEmpty()) {
-                        return (String) parts.get(0).get("text");
+                    List<Map<String, Object>> resParts = (List<Map<String, Object>>) resContent.get("parts");
+                    if (resParts != null && !resParts.isEmpty()) {
+                        return (String) resParts.get(0).get("text");
                     }
                 }
             }

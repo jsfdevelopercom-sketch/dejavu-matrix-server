@@ -158,7 +158,7 @@ public class ClaudeAiClient {
                         String base64Data = parts[1];
                         String textPrompt = prompt.replace(tag, "").trim();
 
-                        List<Map<String, Object>> contentList = new ArrayList<>();
+                        List<Map<String, Object>> contentList = new java.util.ArrayList<>();
                         
                         Map<String, Object> textPart = new HashMap<>();
                         textPart.put("type", "text");

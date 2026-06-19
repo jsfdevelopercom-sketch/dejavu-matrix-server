@@ -50,7 +50,7 @@ public class MatrixEngine {
     private ConfessionRepository confessionRepository;
     
     @Autowired
-    private RamonNotificationRepository notificationRepository;
+    private com.dejavu.backend.repository.RamonNotificationRepository notificationRepository;
     
     @Autowired
     private MatrixMindEngine matrixMindEngine;
