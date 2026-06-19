@@ -44,59 +44,44 @@ public class DarkArchangelInterviewEngine {
 
     public ConfessionGameContent generateGameContent(Confession confession) {
         try {
-            // 1. Initial Probe - Ask leading questions to build the history
-            String probeSystem = "You are a ruthless, analytical data-miner extracting a completely exhaustive history. " +
-                    "Read the confession. Generate 35 precise, leading questions to extract dense, concrete, hyper-detailed data covering the PAST (deep psychological background, hidden motives, long-term prior events), " +
-                    "the PRESENT (the exact minute-by-minute timeline, visceral physical actions, vivid locations, dialogue, sensory details, tools used during the event), " +
-                    "and the FUTURE (quantifiable consequences, elaborate cover-ups, emotional fallout, police investigations). Ensure the story has a massive hook, extreme suspense, and a mind-blowing satisfying conclusion.";
-            String probeUser = "Confession: \"" + confession.getText() + "\"";
-            String questions = aiClient.generateContentLight(probeSystem + "\n" + probeUser);
-
-            // 2. Generate persona and answer the questions
-            String personaSystem = "You are the confessor answering questions with EXTREMELY DENSE, CONCRETE FACTS and VIVID SENSORY DETAILS. " +
-                    "Do not use generic storytelling tropes. Provide highly specific demographics, precise dates, exact times, currency amounts, and minute-by-minute actions. " +
-                    "Paint a highly detailed picture of the environment, the psychology, and the raw events. Ensure the answers build an incredibly rich, dark, complex story arc with intense suspense and an unforgettable twist conclusion.";
-            String personaUser = "Confession: \"" + confession.getText() + "\"\nQuestions:\n" + questions;
-            String answers = aiClient.generateContentLight(personaSystem + "\n" + personaUser);
-
-            // IMPORTANT: Save the newly generated dense extended story back to the confession
-            confession.setExtendedStory(answers);
-            confessionRepository.save(confession);
-
-            // 3. Generate structured JSON game content
-            String jsonSystem = "You are Aarcus, an Expert Hollywood level story writer for psychological thriller mystery films. " +
-                    "Read the highly detailed raw data and output a strict JSON structure containing the game content. " +
-                    "CRITICAL REQUIREMENT: Use the content to create a HIGH adrenaline, extremely detailed story. Output VIVID, immersive, factual content with a powerful hook, intense suspense, and a massive, mind-bending TWIST at the end. " +
-                    "RULES:\n" +
-                    "- title: 2-4 word gripping title.\n" +
-                    "- demographics: A JSON object containing deeply specific { age, occupation, gender, maritalStatus, locationType }.\n" +
-                    "- motive: 2-4 sentence deep psychological description of the hidden motive.\n" +
-                    "- emotionalSignificance: 2-4 sentence vivid description of the psychological impact of this event.\n" +
-                    "- fullRevealText: 100-200 words, vivid, highly detailed timeline of events. Must have a gripping hook, sensory details, and an explosive conclusion.\n" +
-                    "- anonymizedSummary: 1-2 factual gripping sentences.\n" +
-                    "- qualityScore: 0.0 to 5.0 (must be >= 3.0 to be playable).\n" +
-                    "- fragments: Array of EXACTLY 10 fragments. Order them chronologically. The last fragment MUST be the finishing piece of the story, a MASSIVE TWIST. DO NOT INCLUDE ANY EXPLANATION OR ENDER LINE IN THE LAST FRAGMENT! It MUST purely be the final raw action/event of the story.\n" +
-                    "  Each fragment must have:\n" +
-                    "    - emotionFamily (Choose from: Sorrow, Fear, Anger, Guilt, Love, Relief)\n" +
-                    "    - emotionShade (e.g. 'regret', 'panic', 'obsession')\n" +
-                    "    - intensity (1-9 integer)\n" +
-                    "    - fragmentText (15-25 words MAX. DENSE, VIVID, SHOCKING DETAILS. Paint a very clear picture of what is happening.)\n" +
-                    "    - shortFragmentText (2-5 words for card center)\n" +
-                    "    - judgments: Array of exactly 3 judgment questions (binary true/false) about the confessor based on this fragment and prior ones.\n" +
-                    "      Each judgment must have:\n" +
-                    "        - text (e.g., 'This person acts alone.')\n" +
-                    "        - correctAnswer (true or false)\n" +
-                    "        - difficulty ('EASY', 'MEDIUM', 'HARD')\n" +
-                    "        - explanationForBackendOnly (1 factual reason)\n" +
-                    "        - emotionalAxis (e.g., 'Responsibility', 'Desire')\n" +
-                    "OUTPUT ONLY VALID JSON.";
+            String jsonSystem = "You are the Dark Archangel Matrix Engine. Read the confession below and INSTANTLY invent a deeply psychological, vivid, and highly detailed backstory. " +
+                    "Generate a 10-part narrative breakdown of the events leading up to, during, and after the confession. " +
+                    "OUTPUT ONLY VALID JSON with the exact following schema:\n" +
+                    "{\n" +
+                    "  \"title\": \"Epic title\",\n" +
+                    "  \"demographics\": \"{ \\\"age\\\": 30, \\\"occupation\\\": \\\"Teacher\\\", \\\"gender\\\": \\\"Male\\\", \\\"maritalStatus\\\": \\\"Single\\\", \\\"locationType\\\": \\\"City\\\" }\",\n" +
+                    "  \"motive\": \"Core psychological motive\",\n" +
+                    "  \"emotionalSignificance\": \"Why it matters\",\n" +
+                    "  \"fullRevealText\": \"The entire dark truth revealed in one shocking paragraph\",\n" +
+                    "  \"anonymizedSummary\": \"Brief public summary\",\n" +
+                    "  \"qualityScore\": 4.5,\n" +
+                    "  \"fragments\": [\n" +
+                    "    {\n" +
+                    "      \"emotionFamily\": \"Fear\",\n" +
+                    "      \"emotionShade\": \"Paranoia\",\n" +
+                    "      \"intensity\": 8,\n" +
+                    "      \"fragmentText\": \"The exact vivid detail of the moment...\",\n" +
+                    "      \"shortFragmentText\": \"Vivid detail...\",\n" +
+                    "      \"judgments\": [\n" +
+                    "        {\n" +
+                    "          \"text\": \"Did the subject show remorse here?\",\n" +
+                    "          \"correctAnswer\": false,\n" +
+                    "          \"difficulty\": \"MEDIUM\",\n" +
+                    "          \"explanationForBackendOnly\": \"Because they acted selfishly.\",\n" +
+                    "          \"emotionalAxis\": \"Remorse\"\n" +
+                    "        }\n" +
+                    "      ]\n" +
+                    "    }\n" +
+                    "  ]\n" +
+                    "}\n" +
+                    "CRITICAL: You MUST output exactly 10 items in the 'fragments' array. Each fragment MUST have exactly 3 items in the 'judgments' array. OUTPUT RAW JSON ONLY.";
             
-            String jsonUser = "Confession: \"" + confession.getText() + "\"\nExpanded Details:\n" + answers;
+            String jsonUser = "Confession: \"" + confession.getText() + "\"";
 
-            // Use Heavy model for structured JSON with retry loop
+            // Use Light model for LIGHTNING FAST structured JSON generation
             for (int attempt = 1; attempt <= 3; attempt++) {
                 try {
-                    String rawJson = aiClient.generateContentHeavy(jsonSystem + "\n" + jsonUser);
+                    String rawJson = aiClient.generateContentLight(jsonSystem + "\n\n" + jsonUser);
                     
                     if (rawJson == null) {
                         System.err.println("Attempt " + attempt + " failed: rawJson is null.");
@@ -126,8 +111,8 @@ public class DarkArchangelInterviewEngine {
                     content.setEmotionalSignificance(root.path("emotionalSignificance").asText());
                     content.setFullRevealText(root.path("fullRevealText").asText());
                     content.setAnonymizedSummary(root.path("anonymizedSummary").asText());
-                    content.setQualityScore(root.path("qualityScore").asDouble());
-                    content.setCreatedByModel("Gemini-Heavy-Game-Factory");
+                    content.setQualityScore(root.path("qualityScore").asDouble(4.0));
+                    content.setCreatedByModel("Gemini-Light-Lightning");
                     content.setStatus(content.getQualityScore() >= 3.0 ? "PLAYABLE" : "REJECTED");
 
                     int order = 1;
@@ -143,23 +128,26 @@ public class DarkArchangelInterviewEngine {
                         fragment.setFullFragmentText(fNode.path("fragmentText").asText()); // fallback
                         
                         JsonNode judgs = fNode.path("judgments");
-                        for (JsonNode jNode : judgs) {
-                            JudgmentQuestion jq = new JudgmentQuestion();
-                            jq.setFragment(fragment);
-                            jq.setText(jNode.path("text").asText());
-                            jq.setCorrectAnswer(jNode.path("correctAnswer").asBoolean());
-                            jq.setDifficulty(jNode.path("difficulty").asText());
-                            jq.setExplanationForBackendOnly(jNode.path("explanationForBackendOnly").asText());
-                            jq.setEmotionalAxis(jNode.path("emotionalAxis").asText());
-                            fragment.getJudgments().add(jq);
+                        if (judgs.isArray()) {
+                            for (JsonNode jNode : judgs) {
+                                JudgmentQuestion jq = new JudgmentQuestion();
+                                jq.setFragment(fragment);
+                                jq.setText(jNode.path("text").asText());
+                                jq.setCorrectAnswer(jNode.path("correctAnswer").asBoolean());
+                                jq.setDifficulty(jNode.path("difficulty").asText());
+                                jq.setExplanationForBackendOnly(jNode.path("explanationForBackendOnly").asText());
+                                jq.setEmotionalAxis(jNode.path("emotionalAxis").asText());
+                                fragment.getJudgments().add(jq);
+                            }
                         }
                         content.getFragments().add(fragment);
                     }
 
                     return gameContentRepository.save(content);
                 } catch (Exception parseEx) {
-                    System.err.println("Attempt " + attempt + " parsing failed: " + parseEx.getMessage());
-                    try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
+                    System.err.println("Attempt " + attempt + " failed due to parse error: " + parseEx.getMessage());
+                    if (attempt == 3) throw parseEx;
+                    try { Thread.sleep(2000); } catch (Exception ignored) {}
                 }
             }
         } catch (Exception e) {
