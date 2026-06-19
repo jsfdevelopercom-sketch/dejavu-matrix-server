@@ -187,8 +187,8 @@ public class GeminiAiClient {
             // TRACK COST
             if (responseMap.containsKey("usageMetadata")) {
                 Map<String, Object> usage = (Map<String, Object>) responseMap.get("usageMetadata");
-                int inTokens = (Integer) usage.getOrDefault("promptTokenCount", 0);
-                int outTokens = (Integer) usage.getOrDefault("candidatesTokenCount", 0);
+                int inTokens = usage.containsKey("promptTokenCount") ? ((Number) usage.get("promptTokenCount")).intValue() : 0;
+                int outTokens = usage.containsKey("candidatesTokenCount") ? ((Number) usage.get("candidatesTokenCount")).intValue() : 0;
                 if (costTracker != null) {
                     costTracker.trackCost("GEMINI", targetModel, inTokens, outTokens);
                     costLimiter.checkLimits();

@@ -203,8 +203,8 @@ public class ClaudeAiClient {
             // TRACK COST
             if (responseMap.containsKey("usage")) {
                 Map<String, Object> usage = (Map<String, Object>) responseMap.get("usage");
-                int inTokens = (Integer) usage.getOrDefault("input_tokens", 0);
-                int outTokens = (Integer) usage.getOrDefault("output_tokens", 0);
+                int inTokens = usage.containsKey("input_tokens") ? ((Number) usage.get("input_tokens")).intValue() : 0;
+                int outTokens = usage.containsKey("output_tokens") ? ((Number) usage.get("output_tokens")).intValue() : 0;
                 if (costTracker != null) {
                     costTracker.trackCost("CLAUDE", targetModel, inTokens, outTokens);
                     costLimiter.checkLimits();

@@ -141,8 +141,8 @@ public class OpenAiClient {
             // TRACK COST
             if (responseMap.containsKey("usage")) {
                 Map<String, Object> usage = (Map<String, Object>) responseMap.get("usage");
-                int inTokens = (Integer) usage.getOrDefault("prompt_tokens", 0);
-                int outTokens = (Integer) usage.getOrDefault("completion_tokens", 0);
+                int inTokens = usage.containsKey("prompt_tokens") ? ((Number) usage.get("prompt_tokens")).intValue() : 0;
+                int outTokens = usage.containsKey("completion_tokens") ? ((Number) usage.get("completion_tokens")).intValue() : 0;
                 if (costTracker != null) {
                     costTracker.trackCost("OPENAI", targetModel, inTokens, outTokens);
                     costLimiter.checkLimits();
