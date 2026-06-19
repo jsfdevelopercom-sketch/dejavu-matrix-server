@@ -88,7 +88,7 @@ public class AgentMind {
         String ltmExtracted = geminiAiClient.generateContentLight(prompt);
         if (ltmExtracted == null || ltmExtracted.contains("[GEMINI_ERROR]")) ltmExtracted = openAiClient.generateContent("You are a memory extractor.", prompt);
         
-        if (ltmExtracted != null && !ltmExtracted.contains("NONE") && ltmExtracted.length() > 5) {
+        if (ltmExtracted != null && !ltmExtracted.contains("NONE") && ltmExtracted.length() > 5 && !ltmExtracted.contains("[CLAUDE_ERROR]") && !ltmExtracted.contains("[GEMINI_ERROR]")) {
             String color = "#c8c8c8"; // neutral
             if (ltmExtracted.startsWith("[POSITIVE]")) {
                 color = "#4caf50"; // green

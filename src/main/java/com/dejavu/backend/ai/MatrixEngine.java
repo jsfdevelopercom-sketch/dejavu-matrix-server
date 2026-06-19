@@ -76,9 +76,18 @@ public class MatrixEngine {
                 MatrixHuman human = humanRepository.findById(id).orElse(null);
                 if (human != null) {
                     com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(human);
-                    String reaction = agent.ponder("[GLOBAL EVENT DIRECT INVOLVEMENT]: " + eventDescription);
+                    agent.logEvent("[GLOBAL EVENT DIRECT INVOLVEMENT]: " + eventDescription);
+                    String reaction = agent.ponder("I was directly involved in this world event: " + eventDescription);
                     agent.logEvent("[DIRECT EVENT REACTION]: " + reaction.trim());
-                    humanRepository.save(agent.syncToDatabaseEntity());
+                    
+                    // Force inject into Deep Memory
+                    java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
+                    String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+                    String currentMemory = human.getMemory() != null ? human.getMemory() : "";
+                    agent.syncToDatabaseEntity(); // Apply first to update entity
+                    human.setMemory("<span style='color:#c8c8c8'>[WORLD EVENT: " + timeStr + "] " + eventDescription + "</span><br>\n" + currentMemory);
+                    
+                    humanRepository.save(human);
                     result.append("Involved human updated: ").append(agent.getName()).append("\n");
                 }
             }
@@ -88,9 +97,18 @@ public class MatrixEngine {
         for (MatrixHuman h : allHumans) {
             if (involvedHumanIds == null || !involvedHumanIds.contains(h.getId())) {
                 com.dejavu.backend.ai.agent.ActiveMatrixAgent agent = getAgent(h);
-                String reaction = agent.ponder("[HEARD WORLD NEWS]: " + eventDescription);
+                agent.logEvent("[HEARD WORLD NEWS]: " + eventDescription);
+                String reaction = agent.ponder("I heard this news: " + eventDescription);
                 agent.logEvent("[WORLD NEWS REACTION]: " + reaction.trim());
-                humanRepository.save(agent.syncToDatabaseEntity());
+                
+                // Force inject into Deep Memory
+                java.time.ZonedDateTime ncrTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
+                String timeStr = ncrTime.format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+                String currentMemory = h.getMemory() != null ? h.getMemory() : "";
+                agent.syncToDatabaseEntity();
+                h.setMemory("<span style='color:#c8c8c8'>[WORLD EVENT: " + timeStr + "] " + eventDescription + "</span><br>\n" + currentMemory);
+                
+                humanRepository.save(h);
             }
         }
 
